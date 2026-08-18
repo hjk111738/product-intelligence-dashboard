@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경쟁사 신제품 동향 & 품목제조보고서 인텔리전스</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 엑셀 스타일 드롭다운 스크롤바 */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans" onclick="closeAllDropdowns(event)">
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+        
+        <!-- 상단 헤더 및 탭 -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200 gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-blue-600 text-white rounded-2xl shadow-md font-black text-xl tracking-tight">
+                    🚀
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black text-slate-900 tracking-tight">신제품 인텔리전스 대시보드</h1>
+                    <p class="text-xs font-semibold text-slate-400">공공데이터 품목제조보고서 기반 경쟁사 런칭 모니터링</p>
+                </div>
+            </div>
+            
+            <!-- 탭 전환 버튼 -->
+            <div class="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <button id="tabFood" onclick="switchTab('food')" class="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-white text-blue-600">
+                    🟢 식품(첨가물)
+                </button>
+                <button id="tabMeat" onclick="switchTab('meat')" class="px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:text-slate-900">
+                    🔴 축산물
+                </button>
+            </div>
+        </header>
+
+        <!-- 필터 컨트롤 바 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
+                
+                <!-- 엑셀 스타일 제조사 다중 선택 드롭다운 -->
+                <div class="relative" onclick="event.stopPropagation()">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">제조사 (다중 선택)</label>
+                    <button type="button" onclick="toggleDropdown('mfrDropdown')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-left flex justify-between items-center focus:ring-2 focus:ring-blue-500">
+                        <span id="mfrBtnText" class="truncate">전체 제조사</span>
+                        <span class="text-slate-400 text-[10px]">▼</span>
+                    </button>
+                    <!-- 드롭다운 메뉴 -->
+                    <div id="mfrDropdown" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2">
+                        <input type="text" id="mfrSearch" oninput="filterDropdownList('mfr')" placeholder="제조사 검색..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <div class="flex justify-between items-center text-[11px] text-blue-600 font-bold px-1">
+                            <button type="button" onclick="selectAll('mfr', true)" class="hover:underline">전체 선택</button>
+                            <button type="button" onclick="selectAll('mfr', false)" class="hover:underline text-slate-400">선택 해제</button>
+                        </div>
+                        <div id="mfrList" class="max-h-48 overflow-y-auto space-y-1 custom-scroll text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- 엑셀 스타일 품목유형 다중 선택 드롭다운 -->
+                <div class="relative" onclick="event.stopPropagation()">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">품목유형 (다중 선택)</label>
+                    <button type="button" onclick="toggleDropdown('ptypeDropdown')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-left flex justify-between items-center focus:ring-2 focus:ring-blue-500">
+                        <span id="ptypeBtnText" class="truncate">전체 유형</span>
+                        <span class="text-slate-400 text-[10px]">▼</span>
+                    </button>
+                    <!-- 드롭다운 메뉴 -->
+                    <div id="ptypeDropdown" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2">
+                        <input type="text" id="ptypeSearch" oninput="filterDropdownList('ptype')" placeholder="품목유형 검색..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <div class="flex justify-between items-center text-[11px] text-blue-600 font-bold px-1">
+                            <button type="button" onclick="selectAll('ptype', true)" class="hover:underline">전체 선택</button>
+                            <button type="button" onclick="selectAll('ptype', false)" class="hover:underline text-slate-400">선택 해제</button>
+                        </div>
+                        <div id="ptypeList" class="max-h-48 overflow-y-auto space-y-1 custom-scroll text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- 키워드 검색 -->
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">품목명 / 원재료명 검색</label>
+                    <input type="text" id="searchInput" placeholder="예: 단백질, 대체당, 마라 (쉼표로 다중 검색)" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- 날짜 구간 & 주차별 빠른 설정 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center pt-2 border-t border-slate-100">
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-bold text-slate-500">등록일자(From)</label>
+                    <input type="date" id="dateFrom" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-bold text-slate-500">등록일자(To)</label>
+                    <input type="date" id="dateTo" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
+                </div>
+                <!-- 주차 빠른 설정 -->
+                <div class="flex items-center gap-2">
+                    <input type="month" id="weekMonth" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
+                    <select id="weekSelect" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
+                        <option value="1">1주차</option>
+                        <option value="2">2주차</option>
+                        <option value="3">3주차</option>
+                        <option value="4">4주차</option>
+                    </select>
+                    <button onclick="applyWeekly()" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-xs">주간설정</button>
+                </div>
+                <!-- 액션 버튼 -->
+                <div class="flex gap-2">
+                    <button onclick="applyFilters()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs shadow-sm">조건 검색</button>
+                    <button onclick="resetFilters()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold">초기화</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI 카드 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-400 uppercase">신규 런칭 품목 수</p>
+                <p class="text-3xl font-black text-blue-600 mt-1" id="kpiItems">-</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-400 uppercase">출시 제조사 수</p>
+                <p class="text-3xl font-black text-emerald-600 mt-1" id="kpiCompanies">-</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-400 uppercase">분석 카테고리 수</p>
+                <p class="text-3xl font-black text-purple-600 mt-1" id="kpiPtypes">-</p>
+            </div>
+        </div>
+
+        <!-- 차트 영역: 3단 레이아웃 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 class="text-sm font-black text-slate-800 mb-3">Top 제조사별 신제품 수</h2>
+                <div class="h-64"><canvas id="mfrChart"></canvas></div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 class="text-sm font-black text-slate-800 mb-3">카테고리(유형) 분포</h2>
+                <div class="h-64 flex justify-center"><canvas id="ptypeChart"></canvas></div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 class="text-sm font-black text-slate-800 mb-3">주요 품목유형별 등록 추이 (Top 5)</h2>
+                <div class="h-64"><canvas id="trendChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- 하단 데이터 테이블 -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-sm font-black text-slate-800">품목제조보고서 상세 목록 (<span id="totalCountText" class="text-blue-600">0건</span>)</h2>
+                <button onclick="downloadCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm">
+                    📥 CSV 다운로드
+                </button>
+            </div>
+
+            <div class="overflow-x-auto max-h-96 border border-slate-200 rounded-xl">
+                <table class="min-w-full text-left text-xs divide-y divide-slate-200">
+                    <thead class="bg-slate-50 text-slate-600 sticky top-0 font-bold">
+                        <tr>
+                            <th class="px-4 py-3 cursor-pointer hover:bg-slate-100" onclick="sortTable('BSSH_NM')">업소명 ↕</th>
+                            <th class="px-4 py-3">품목제조번호</th>
+                            <th class="px-4 py-3 cursor-pointer hover:bg-slate-100" onclick="sortTable('PRDLST_NM')">품목명 ↕</th>
+                            <th class="px-4 py-3 cursor-pointer hover:bg-slate-100" onclick="sortTable('PRDLST_DCNM')">품목유형 ↕</th>
+                            <th class="px-4 py-3">원재료명</th>
+                            <th class="px-4 py-3 cursor-pointer hover:bg-slate-100" onclick="sortTable('PRMS_DT')">등록일자 ↕</th>
+                            <th class="px-4 py-3">변경일자</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 bg-white text-slate-700">
+                        <tr><td colspan="7" class="text-center py-6 text-slate-400">데이터를 불러오는 중입니다...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 페이지네이션 -->
+            <div id="pagination" class="flex justify-center items-center gap-2 pt-2"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'food';
+        let currentPage = 1;
+        let sortCol = 'PRMS_DT';
+        let sortAsc = false;
+        
+        let mfrChart = null;
+        let ptypeChart = null;
+        let trendChart = null;
+
+        let allCompanies = [];
+        let allPtypes = [];
+        let selectedCompanies = new Set();
+        let selectedPtypes = new Set();
+
+        const PALETTE = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B', '#F97316'];
+
+        async function init() {
+            await loadMeta();
+            await loadDashboard();
+            await loadDetails(1);
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tabFood').className = tab === 'food' 
+                ? 'px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-white text-blue-600' 
+                : 'px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:text-slate-900';
+            document.getElementById('tabMeat').className = tab === 'meat' 
+                ? 'px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-white text-blue-600' 
+                : 'px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:text-slate-900';
+            
+            selectedCompanies.clear();
+            selectedPtypes.clear();
+            init();
+        }
+
+        async function loadMeta() {
+            const res = await fetch(`/api/meta?dataType=${currentTab}`);
+            const data = await res.json();
+
+            allCompanies = data.companies;
+            allPtypes = data.ptypes;
+
+            renderCheckboxList('mfr', allCompanies);
+            renderCheckboxList('ptype', allPtypes);
+            updateBtnTexts();
+
+            if (data.min_date !== "-" && data.max_date !== "-") {
+                document.getElementById('dateFrom').value = data.min_date;
+                document.getElementById('dateTo').value = data.max_date;
+            }
+        }
+
+        // 엑셀 스타일 드롭다운 렌더링
+        function renderCheckboxList(type, list) {
+            const container = document.getElementById(`${type}List`);
+            const selectedSet = (type === 'mfr') ? selectedCompanies : selectedPtypes;
+            
+            container.innerHTML = list.map(item => `
+                <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer">
+                    <input type="checkbox" value="${item}" ${selectedSet.has(item) ? 'checked' : ''} onchange="toggleSelect('${type}', '${item}')" class="rounded text-blue-600 focus:ring-0">
+                    <span class="truncate">${item}</span>
+                </label>
+            `).join('');
+        }
+
+        function toggleDropdown(id) {
+            const el = document.getElementById(id);
+            const isHidden = el.classList.contains('hidden');
+            closeAllDropdowns();
+            if (isHidden) el.classList.remove('hidden');
+        }
+
+        function closeAllDropdowns() {
+            document.getElementById('mfrDropdown').classList.add('hidden');
+            document.getElementById('ptypeDropdown').classList.add('hidden');
+        }
+
+        function filterDropdownList(type) {
+            const q = document.getElementById(`${type}Search`).value.toLowerCase();
+            const sourceList = (type === 'mfr') ? allCompanies : allPtypes;
+            const filtered = sourceList.filter(item => item.toLowerCase().includes(q));
+            renderCheckboxList(type, filtered);
+        }
+
+        function toggleSelect(type, val) {
+            const set = (type === 'mfr') ? selectedCompanies : selectedPtypes;
+            if (set.has(val)) set.delete(val);
+            else set.add(val);
+            updateBtnTexts();
+        }
+
+        function selectAll(type, check) {
+            const set = (type === 'mfr') ? selectedCompanies : selectedPtypes;
+            const sourceList = (type === 'mfr') ? allCompanies : allPtypes;
+            set.clear();
+            if (check) sourceList.forEach(item => set.add(item));
+            renderCheckboxList(type, sourceList);
+            updateBtnTexts();
+        }
+
+        function updateBtnTexts() {
+            document.getElementById('mfrBtnText').textContent = selectedCompanies.size === 0 
+                ? '전체 제조사' 
+                : `제조사 (${selectedCompanies.size}개 선택)`;
+            document.getElementById('ptypeBtnText').textContent = selectedPtypes.size === 0 
+                ? '전체 유형' 
+                : `품목유형 (${selectedPtypes.size}개 선택)`;
+        }
+
+        function getFilterParams() {
+            const companyParam = selectedCompanies.size === 0 ? 'ALL' : Array.from(selectedCompanies).join(',');
+            const ptypeParam = selectedPtypes.size === 0 ? 'ALL' : Array.from(selectedPtypes).join(',');
+            
+            return new URLSearchParams({
+                dataType: currentTab,
+                company: companyParam,
+                ptype: ptypeParam,
+                pname: document.getElementById('searchInput').value.trim(),
+                dateFrom: document.getElementById('dateFrom').value,
+                dateTo: document.getElementById('dateTo').value
+            });
+        }
+
+        async function loadDashboard() {
+            const params = getFilterParams();
+            const res = await fetch(`/api/dashboard?${params}`);
+            const data = await res.json();
+
+            // KPI 업데이트
+            document.getElementById('kpiItems').textContent = Number(data.kpi.total_items).toLocaleString() + ' 개';
+            document.getElementById('kpiCompanies').textContent = Number(data.kpi.company_count).toLocaleString() + ' 개사';
+            document.getElementById('kpiPtypes').textContent = Number(data.kpi.ptype_count).toLocaleString() + ' 개';
+
+            // 1. 제조사 바 차트
+            if (mfrChart) mfrChart.destroy();
+            mfrChart = new Chart(document.getElementById('mfrChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.mfr_chart.map(m => m.company),
+                    datasets: [{
+                        label: '신제품 수',
+                        data: data.mfr_chart.map(m => m.count),
+                        backgroundColor: '#2563EB',
+                        borderRadius: 6
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 2. 품목유형 도넛 차트
+            if (ptypeChart) ptypeChart.destroy();
+            ptypeChart = new Chart(document.getElementById('ptypeChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.ptype_chart.map(p => p.ptype),
+                    datasets: [{
+                        data: data.ptype_chart.map(p => p.count),
+                        backgroundColor: PALETTE
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 3. 품목유형별 다중 꺾은선(라인) 차트
+            if (trendChart) trendChart.destroy();
+            
+            const datasets = data.top_ptypes.map((ptype, idx) => {
+                const ptypeMatrix = data.trend_matrix[ptype] || {};
+                return {
+                    label: ptype,
+                    data: data.trend_periods.map(ym => ptypeMatrix[ym] || 0),
+                    borderColor: PALETTE[idx % PALETTE.length],
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.2
+                };
+            });
+
+            trendChart = new Chart(document.getElementById('trendChart'), {
+                type: 'line',
+                data: {
+                    labels: data.trend_periods,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        async function loadDetails(page = 1) {
+            currentPage = page;
+            const params = getFilterParams();
+            params.append('page', page);
+            params.append('sortCol', sortCol);
+            params.append('sortAsc', sortAsc);
+
+            const res = await fetch(`/api/details?${params}`);
+            const result = await res.json();
+
+            document.getElementById('totalCountText').textContent = `${Number(result.TotalCount).toLocaleString()}건`;
+
+            const tbody = document.getElementById('tableBody');
+            if (!result.Data || result.Data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-400">조건에 일치하는 품목이 없습니다.</td></tr>';
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = result.Data.map(r => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-2.5 font-bold text-slate-800 whitespace-nowrap">${r.BSSH_NM}</td>
+                    <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap">${r.PRDLST_REPORT_NO}</td>
+                    <td class="px-4 py-2.5 font-semibold text-blue-600 whitespace-nowrap">${r.PRDLST_NM}</td>
+                    <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap">${r.PRDLST_DCNM}</td>
+                    <td class="px-4 py-2.5 text-slate-500 truncate max-w-xs" title="${r.RAWMTRL_NM}">${r.RAWMTRL_NM}</td>
+                    <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap font-medium">${formatDate(r.PRMS_DT)}</td>
+                    <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${formatDate(r.CHNG_DT)}</td>
+                </tr>
+            `).join('');
+
+            renderPagination(result.TotalCount);
+        }
+
+        function formatDate(d) {
+            if (d && d.length === 8) return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+            return d || '-';
+        }
+
+        function renderPagination(totalCount) {
+            const wrapper = document.getElementById('pagination');
+            wrapper.innerHTML = '';
+            const totalPages = Math.ceil(totalCount / 20);
+            if (totalPages <= 1) return;
+
+            let start = Math.max(1, currentPage - 2);
+            let end = Math.min(totalPages, start + 4);
+
+            if (currentPage > 1) wrapper.appendChild(createPageBtn('이전', currentPage - 1));
+            for (let i = start; i <= end; i++) wrapper.appendChild(createPageBtn(i, i, i === currentPage));
+            if (currentPage < totalPages) wrapper.appendChild(createPageBtn('다음', currentPage + 1));
+        }
+
+        function createPageBtn(text, page, isActive = false) {
+            const btn = document.createElement('button');
+            btn.innerText = text;
+            btn.className = `px-3 py-1 rounded text-xs font-bold border ${
+                isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`;
+            btn.onclick = () => loadDetails(page);
+            return btn;
+        }
+
+        function sortTable(col) {
+            sortAsc = (sortCol === col) ? !sortAsc : true;
+            sortCol = col;
+            loadDetails(1);
+        }
+
+        function applyWeekly() {
+            const ym = document.getElementById('weekMonth').value;
+            if (!ym) return alert("연도와 월을 선택해주세요.");
+            const week = document.getElementById('weekSelect').value;
+            const [y, m] = ym.split('-');
+
+            let dFrom = '', dTo = '';
+            if (week === '1') { dFrom = `${y}-${m}-01`; dTo = `${y}-${m}-07`; }
+            else if (week === '2') { dFrom = `${y}-${m}-08`; dTo = `${y}-${m}-14`; }
+            else if (week === '3') { dFrom = `${y}-${m}-15`; dTo = `${y}-${m}-21`; }
+            else if (week === '4') { 
+                const lastDay = new Date(y, m, 0).getDate();
+                dFrom = `${y}-${m}-22`; dTo = `${y}-${m}-${lastDay}`; 
+            }
+
+            document.getElementById('dateFrom').value = dFrom;
+            document.getElementById('dateTo').value = dTo;
+            applyFilters();
+        }
+
+        function applyFilters() {
+            closeAllDropdowns();
+            loadDashboard();
+            loadDetails(1);
+        }
+
+        function resetFilters() {
+            selectedCompanies.clear();
+            selectedPtypes.clear();
+            updateBtnTexts();
+            renderCheckboxList('mfr', allCompanies);
+            renderCheckboxList('ptype', allPtypes);
+            document.getElementById('searchInput').value = '';
+            loadMeta().then(() => {
+                loadDashboard();
+                loadDetails(1);
+            });
+        }
+
+        function downloadCSV() {
+            const params = getFilterParams();
+            params.append('sortCol', sortCol);
+            params.append('sortAsc', sortAsc);
+            window.location.href = `/api/download?${params}`;
+        }
+
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') applyFilters();
+        });
+
+        init();
+    </script>
+</body>
+</html>

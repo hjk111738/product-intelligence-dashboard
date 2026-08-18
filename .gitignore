@@ -1,0 +1,6 @@
+raw_food/
+raw_meat/
+*.csv
+*.xlsx
+__pycache__/
+.venv/
