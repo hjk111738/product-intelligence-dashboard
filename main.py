@@ -26,25 +26,33 @@ def query_to_dict(conn, query):
     columns = [desc[0] for desc in res.description]
     return [dict(zip(columns, row)) for row in res.fetchall()]
 
-def build_where_clause(company: str, ptype: str, pname: str, dateFrom: str, dateTo: str):
+def build_where_clause(company: str, ptype: str, pname: str, rawmtrl: str, dateFrom: str, dateTo: str):
     clauses = ["1=1"]
     
     if company and company != "ALL":
         keys = [k.strip() for k in company.split(",") if k.strip()]
         if keys:
-            sub = " OR ".join([f"BSSH_NM = '{k}'" for k in keys])
+            sub = " OR ".join([f"BSSH_NM = '{k.replace("'", "''")}'" for k in keys])
             clauses.append(f"({sub})")
             
     if ptype and ptype != "ALL":
         keys = [k.strip() for k in ptype.split(",") if k.strip()]
         if keys:
-            sub = " OR ".join([f"PRDLST_DCNM = '{k}'" for k in keys])
+            sub = " OR ".join([f"PRDLST_DCNM = '{k.replace("'", "''")}'" for k in keys])
             clauses.append(f"({sub})")
             
+    # 품목명 다중 검색 (쉼표 구분)
     if pname:
         keys = [k.strip() for k in pname.split(",") if k.strip()]
         if keys:
-            sub = " OR ".join([f"(PRDLST_NM ILIKE '%{k}%' OR RAWMTRL_NM ILIKE '%{k}%')" for k in keys])
+            sub = " OR ".join([f"PRDLST_NM ILIKE '%{k.replace("'", "''")}%'" for k in keys])
+            clauses.append(f"({sub})")
+            
+    # 원재료명 다중 검색 (쉼표 구분)
+    if rawmtrl:
+        keys = [k.strip() for k in rawmtrl.split(",") if k.strip()]
+        if keys:
+            sub = " OR ".join([f"RAWMTRL_NM ILIKE '%{k.replace("'", "''")}%'" for k in keys])
             clauses.append(f"({sub})")
             
     if dateFrom:
@@ -70,7 +78,6 @@ def get_meta(dataType: str = "food"):
         
     conn = duckdb.connect()
     
-    # 일자 범위
     dt_query = f"""
         SELECT MIN(PRMS_DT), MAX(PRMS_DT) 
         FROM '{file_path}' 
@@ -80,7 +87,6 @@ def get_meta(dataType: str = "food"):
     min_d = f"{row[0][:4]}-{row[0][4:6]}-{row[0][6:]}" if row and row[0] else "-"
     max_d = f"{row[1][:4]}-{row[1][4:6]}-{row[1][6:]}" if row and row[1] else "-"
 
-    # 전체 제조사 목록
     mfr_query = f"""
         SELECT BSSH_NM, COUNT(*) as cnt
         FROM '{file_path}'
@@ -90,7 +96,6 @@ def get_meta(dataType: str = "food"):
     """
     companies = [r[0] for r in conn.execute(mfr_query).fetchall()]
 
-    # 전체 품목유형 목록
     ptype_query = f"""
         SELECT PRDLST_DCNM, COUNT(*) as cnt
         FROM '{file_path}'
@@ -104,15 +109,15 @@ def get_meta(dataType: str = "food"):
 
 @app.get("/api/dashboard")
 def get_dashboard_data(
-    dataType: str = "food", company: str = "", ptype: str = "", pname: str = "",
-    dateFrom: str = "", dateTo: str = ""
+    dataType: str = "food", company: str = "", ptype: str = "", 
+    pname: str = "", rawmtrl: str = "", dateFrom: str = "", dateTo: str = ""
 ):
     file_path = get_file_path(dataType)
     if not os.path.exists(file_path):
         return JSONResponse(status_code=404, content={"error": "File not found"})
 
     conn = duckdb.connect()
-    where_sql = build_where_clause(company, ptype, pname, dateFrom, dateTo)
+    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
 
     # 1. KPI 지표
     kpi_query = f"""
@@ -125,7 +130,7 @@ def get_dashboard_data(
     """
     kpi = query_to_dict(conn, kpi_query)[0]
 
-    # 2. 제조사별 신제품 런칭 순위 (Top 8)
+    # 2. 제조사별 순위 (Top 8)
     mfr_query = f"""
         SELECT BSSH_NM as company, COUNT(*) as count
         FROM '{file_path}' 
@@ -136,7 +141,7 @@ def get_dashboard_data(
     """
     mfr_chart = query_to_dict(conn, mfr_query)
 
-    # 3. 카테고리(품목유형)별 분포 (Top 6)
+    # 3. 카테고리별 분포 (Top 6)
     ptype_chart_query = f"""
         SELECT PRDLST_DCNM as ptype, COUNT(*) as count
         FROM '{file_path}' 
@@ -147,28 +152,27 @@ def get_dashboard_data(
     """
     ptype_chart = query_to_dict(conn, ptype_chart_query)
 
-    # 4. 품목유형별 월별 시계열 추이 (Top 5 품목유형 대상 다중 꺾은선)
-    top_ptypes = [p["ptype"] for p in ptype_chart[:5]]
+    # 4. 품목유형별 월별 시계열 추이
+    top_ptypes = [p["ptype"] for p in ptype_chart[:5] if p.get("ptype")]
     
-    # 전체 기간 리스트 (X축)
     period_query = f"""
         SELECT DISTINCT SUBSTRING(PRMS_DT, 1, 4) || '-' || SUBSTRING(PRMS_DT, 5, 2) as ym
         FROM '{file_path}' 
-        WHERE {where_sql} AND LENGTH(PRMS_DT) >= 6
+        WHERE {where_sql} AND PRMS_DT IS NOT NULL AND LENGTH(PRMS_DT) = 8 AND PRMS_DT NOT LIKE '0000%'
         ORDER BY ym ASC
     """
-    periods = [r[0] for r in conn.execute(period_query).fetchall()]
+    periods = [r[0] for r in conn.execute(period_query).fetchall() if r[0]]
 
     trend_matrix = {}
     if top_ptypes and periods:
-        ptype_in = ", ".join([f"'{p}'" for p in top_ptypes])
+        ptype_in = ", ".join([f"'{p.replace("'", "''")}'" for p in top_ptypes])
         trend_query = f"""
             SELECT 
                 PRDLST_DCNM as ptype,
                 SUBSTRING(PRMS_DT, 1, 4) || '-' || SUBSTRING(PRMS_DT, 5, 2) as ym,
                 COUNT(*) as count
             FROM '{file_path}' 
-            WHERE {where_sql} AND PRDLST_DCNM IN ({ptype_in}) AND LENGTH(PRMS_DT) >= 6
+            WHERE {where_sql} AND PRDLST_DCNM IN ({ptype_in}) AND PRMS_DT IS NOT NULL AND LENGTH(PRMS_DT) = 8
             GROUP BY PRDLST_DCNM, ym
             ORDER BY ym ASC
         """
@@ -189,15 +193,16 @@ def get_dashboard_data(
 
 @app.get("/api/details")
 def details(
-    dataType: str = "food", company: str = "", ptype: str = "", pname: str = "",
-    dateFrom: str = "", dateTo: str = "", page: int = 1, sortCol: str = "PRMS_DT", sortAsc: str = "false"
+    dataType: str = "food", company: str = "", ptype: str = "", 
+    pname: str = "", rawmtrl: str = "", dateFrom: str = "", dateTo: str = "", 
+    page: int = 1, sortCol: str = "PRMS_DT", sortAsc: str = "false"
 ):
     file_path = get_file_path(dataType)
     if not os.path.exists(file_path):
         return JSONResponse(content={"TotalCount": 0, "Data": []})
         
     conn = duckdb.connect()
-    where_sql = build_where_clause(company, ptype, pname, dateFrom, dateTo)
+    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
     
     count_query = f"SELECT COUNT(*) FROM '{file_path}' WHERE {where_sql}"
     total_count = conn.execute(count_query).fetchone()[0]
@@ -230,15 +235,16 @@ def details(
 
 @app.get("/api/download")
 def download(
-    dataType: str = "food", company: str = "", ptype: str = "", pname: str = "",
-    dateFrom: str = "", dateTo: str = "", sortCol: str = "PRMS_DT", sortAsc: str = "false"
+    dataType: str = "food", company: str = "", ptype: str = "", 
+    pname: str = "", rawmtrl: str = "", dateFrom: str = "", dateTo: str = "", 
+    sortCol: str = "PRMS_DT", sortAsc: str = "false"
 ):
     file_path = get_file_path(dataType)
     if not os.path.exists(file_path):
         return Response(content="", media_type="text/csv")
         
     conn = duckdb.connect()
-    where_sql = build_where_clause(company, ptype, pname, dateFrom, dateTo)
+    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
     
     direction = "ASC" if sortAsc.lower() == "true" else "DESC"
     order_sql = f"ORDER BY {sortCol} {direction}" if sortCol else ""

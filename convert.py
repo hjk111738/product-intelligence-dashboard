@@ -37,8 +37,43 @@ def process_folder(folder_name, output_parquet_name):
         print(f"[{folder_name}] 유효한 데이터가 없습니다.")
         return
 
-    print(f"🔄 데이터 병합 및 최적화(중복 제거) 중...")
+    print(f"🔄 데이터 병합 및 최적화 중...")
     combined_df = pl.concat(dfs, how="diagonal")
+
+    # 원재료명 정렬 함수 (RAWMTRL_ORDNO 기준 오름차순 정렬)
+    def sort_materials(struct_val):
+        ord_val = struct_val.get("RAWMTRL_ORDNO")
+        mat_val = struct_val.get("RAWMTRL_NM")
+        
+        if not ord_val or not mat_val:
+            return mat_val
+            
+        try:
+            ord_list = [x.strip() for x in str(ord_val).split(',') if x.strip()]
+            mat_list = [x.strip() for x in str(mat_val).split(',') if x.strip()]
+            
+            # 개수가 다를 경우 원본 유지
+            if len(ord_list) != len(mat_list) or len(ord_list) == 0:
+                return mat_val
+                
+            paired = []
+            for o, m in zip(ord_list, mat_list):
+                try:
+                    paired.append((int(o), m))
+                except ValueError:
+                    paired.append((9999, m)) # 숫자가 아닌 경우 후순위 배치
+                    
+            paired.sort(key=lambda x: x[0])
+            return ", ".join([p[1] for p in paired])
+        except Exception:
+            return mat_val
+
+    # 원재료명(RAWMTRL_NM) 정렬 로직 적용
+    if "RAWMTRL_ORDNO" in combined_df.columns and "RAWMTRL_NM" in combined_df.columns:
+        print(f"🔄 원재료명(RAWMTRL_NM) 순서 번호 기준 재배열 중...")
+        combined_df = combined_df.with_columns(
+            pl.struct(["RAWMTRL_ORDNO", "RAWMTRL_NM"]).map_elements(sort_materials, return_dtype=pl.Utf8).alias("RAWMTRL_NM")
+        )
 
     # 변경일자(CHNG_DT) 기준 정렬 후 품목제조번호(PRDLST_REPORT_NO) 기준 중복 제거 (최신 데이터 유지)
     if "CHNG_DT" in combined_df.columns and "PRDLST_REPORT_NO" in combined_df.columns:

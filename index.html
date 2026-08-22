@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* 엑셀 스타일 드롭다운 스크롤바 */
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
@@ -42,14 +41,13 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
                 
-                <!-- 엑셀 스타일 제조사 다중 선택 드롭다운 -->
+                <!-- 제조사 다중 선택 드롭다운 -->
                 <div class="relative" onclick="event.stopPropagation()">
                     <label class="block text-xs font-bold text-slate-500 mb-1">제조사 (다중 선택)</label>
                     <button type="button" onclick="toggleDropdown('mfrDropdown')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-left flex justify-between items-center focus:ring-2 focus:ring-blue-500">
                         <span id="mfrBtnText" class="truncate">전체 제조사</span>
                         <span class="text-slate-400 text-[10px]">▼</span>
                     </button>
-                    <!-- 드롭다운 메뉴 -->
                     <div id="mfrDropdown" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2">
                         <input type="text" id="mfrSearch" oninput="filterDropdownList('mfr')" placeholder="제조사 검색..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
                         <div class="flex justify-between items-center text-[11px] text-blue-600 font-bold px-1">
@@ -60,14 +58,13 @@
                     </div>
                 </div>
 
-                <!-- 엑셀 스타일 품목유형 다중 선택 드롭다운 -->
+                <!-- 품목유형 다중 선택 드롭다운 -->
                 <div class="relative" onclick="event.stopPropagation()">
                     <label class="block text-xs font-bold text-slate-500 mb-1">품목유형 (다중 선택)</label>
                     <button type="button" onclick="toggleDropdown('ptypeDropdown')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-left flex justify-between items-center focus:ring-2 focus:ring-blue-500">
                         <span id="ptypeBtnText" class="truncate">전체 유형</span>
                         <span class="text-slate-400 text-[10px]">▼</span>
                     </button>
-                    <!-- 드롭다운 메뉴 -->
                     <div id="ptypeDropdown" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2">
                         <input type="text" id="ptypeSearch" oninput="filterDropdownList('ptype')" placeholder="품목유형 검색..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
                         <div class="flex justify-between items-center text-[11px] text-blue-600 font-bold px-1">
@@ -78,10 +75,16 @@
                     </div>
                 </div>
 
-                <!-- 키워드 검색 -->
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-bold text-slate-500 mb-1">품목명 / 원재료명 검색</label>
-                    <input type="text" id="searchInput" placeholder="예: 단백질, 대체당, 마라 (쉼표로 다중 검색)" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500">
+                <!-- 품목명 검색 (분리됨) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">품목명 검색</label>
+                    <input type="text" id="pnameInput" placeholder="예: 단백질, 마라 (쉼표 다중)" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <!-- 원재료명 검색 (분리됨) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">원재료명 검색</label>
+                    <input type="text" id="rawmtrlInput" placeholder="예: 대체당, 천일염 (쉼표 다중)" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
 
@@ -95,7 +98,6 @@
                     <label class="text-xs font-bold text-slate-500">등록일자(To)</label>
                     <input type="date" id="dateTo" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
                 </div>
-                <!-- 주차 빠른 설정 -->
                 <div class="flex items-center gap-2">
                     <input type="month" id="weekMonth" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
                     <select id="weekSelect" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
@@ -106,7 +108,6 @@
                     </select>
                     <button onclick="applyWeekly()" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-xs">주간설정</button>
                 </div>
-                <!-- 액션 버튼 -->
                 <div class="flex gap-2">
                     <button onclick="applyFilters()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-xs shadow-sm">조건 검색</button>
                     <button onclick="resetFilters()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold">초기화</button>
@@ -117,7 +118,7 @@
         <!-- KPI 카드 -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-bold text-slate-400 uppercase">신규 런칭 품목 수</p>
+                <p class="text-xs font-bold text-slate-400 uppercase">신규 등록 품목 수</p>
                 <p class="text-3xl font-black text-blue-600 mt-1" id="kpiItems">-</p>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
@@ -134,15 +135,15 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3">Top 제조사별 신제품 수</h2>
-                <div class="h-64"><canvas id="mfrChart"></canvas></div>
+                <div class="h-64 relative"><canvas id="mfrChart"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3">카테고리(유형) 분포</h2>
-                <div class="h-64 flex justify-center"><canvas id="ptypeChart"></canvas></div>
+                <div class="h-64 relative flex justify-center"><canvas id="ptypeChart"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3">주요 품목유형별 등록 추이 (Top 5)</h2>
-                <div class="h-64"><canvas id="trendChart"></canvas></div>
+                <div class="h-64 relative"><canvas id="trendChart"></canvas></div>
             </div>
         </div>
 
@@ -174,7 +175,6 @@
                 </table>
             </div>
 
-            <!-- 페이지네이션 -->
             <div id="pagination" class="flex justify-center items-center gap-2 pt-2"></div>
         </div>
     </div>
@@ -220,8 +220,8 @@
             const res = await fetch(`/api/meta?dataType=${currentTab}`);
             const data = await res.json();
 
-            allCompanies = data.companies;
-            allPtypes = data.ptypes;
+            allCompanies = data.companies || [];
+            allPtypes = data.ptypes || [];
 
             renderCheckboxList('mfr', allCompanies);
             renderCheckboxList('ptype', allPtypes);
@@ -233,7 +233,6 @@
             }
         }
 
-        // 엑셀 스타일 드롭다운 렌더링
         function renderCheckboxList(type, list) {
             const container = document.getElementById(`${type}List`);
             const selectedSet = (type === 'mfr') ? selectedCompanies : selectedPtypes;
@@ -298,7 +297,8 @@
                 dataType: currentTab,
                 company: companyParam,
                 ptype: ptypeParam,
-                pname: document.getElementById('searchInput').value.trim(),
+                pname: document.getElementById('pnameInput').value.trim(),
+                rawmtrl: document.getElementById('rawmtrlInput').value.trim(),
                 dateFrom: document.getElementById('dateFrom').value,
                 dateTo: document.getElementById('dateTo').value
             });
@@ -309,12 +309,10 @@
             const res = await fetch(`/api/dashboard?${params}`);
             const data = await res.json();
 
-            // KPI 업데이트
             document.getElementById('kpiItems').textContent = Number(data.kpi.total_items).toLocaleString() + ' 개';
             document.getElementById('kpiCompanies').textContent = Number(data.kpi.company_count).toLocaleString() + ' 개사';
             document.getElementById('kpiPtypes').textContent = Number(data.kpi.ptype_count).toLocaleString() + ' 개';
 
-            // 1. 제조사 바 차트
             if (mfrChart) mfrChart.destroy();
             mfrChart = new Chart(document.getElementById('mfrChart'), {
                 type: 'bar',
@@ -330,7 +328,6 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 2. 품목유형 도넛 차트
             if (ptypeChart) ptypeChart.destroy();
             ptypeChart = new Chart(document.getElementById('ptypeChart'), {
                 type: 'doughnut',
@@ -344,33 +341,53 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 3. 품목유형별 다중 꺾은선(라인) 차트
-            if (trendChart) trendChart.destroy();
+            if (trendChart) {
+                trendChart.destroy();
+                trendChart = null;
+            }
             
-            const datasets = data.top_ptypes.map((ptype, idx) => {
-                const ptypeMatrix = data.trend_matrix[ptype] || {};
+            const periods = data.trend_periods || [];
+            const topPtypes = data.top_ptypes || [];
+            const matrix = data.trend_matrix || {};
+
+            const datasets = topPtypes.map((ptype, idx) => {
+                const ptypeMatrix = matrix[ptype] || {};
                 return {
                     label: ptype,
-                    data: data.trend_periods.map(ym => ptypeMatrix[ym] || 0),
+                    data: periods.map(ym => ptypeMatrix[ym] || 0),
                     borderColor: PALETTE[idx % PALETTE.length],
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    pointRadius: 3,
-                    tension: 0.2
+                    backgroundColor: PALETTE[idx % PALETTE.length],
+                    borderWidth: 2.5,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: false,
+                    tension: 0.15
                 };
             });
 
-            trendChart = new Chart(document.getElementById('trendChart'), {
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctxTrend, {
                 type: 'line',
                 data: {
-                    labels: data.trend_periods,
+                    labels: periods,
                     datasets: datasets
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } }
+                        }
+                    }
                 }
             });
         }
@@ -476,7 +493,8 @@
             updateBtnTexts();
             renderCheckboxList('mfr', allCompanies);
             renderCheckboxList('ptype', allPtypes);
-            document.getElementById('searchInput').value = '';
+            document.getElementById('pnameInput').value = '';
+            document.getElementById('rawmtrlInput').value = '';
             loadMeta().then(() => {
                 loadDashboard();
                 loadDetails(1);
@@ -490,7 +508,10 @@
             window.location.href = `/api/download?${params}`;
         }
 
-        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+        document.getElementById('pnameInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') applyFilters();
+        });
+        document.getElementById('rawmtrlInput').addEventListener('keyup', (e) => {
             if (e.key === 'Enter') applyFilters();
         });
 
