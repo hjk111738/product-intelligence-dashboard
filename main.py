@@ -5,9 +5,6 @@ import duckdb
 import os
 import io
 import csv
-import json
-import re
-from collections import Counter
 
 app = FastAPI()
 
@@ -27,9 +24,6 @@ db.execute("SET threads = 1;")
 
 def get_file_path(data_type: str):
     return os.path.join(BASE_DIR, f"data_{data_type}.parquet")
-
-def get_summary_path(data_type: str):
-    return os.path.join(BASE_DIR, f"summary_{data_type}.json")
 
 def query_to_dict(cursor, query: str):
     res = cursor.execute(query)
@@ -56,10 +50,6 @@ def build_where_clause(company: str, ptype: str, pname: str, rawmtrl: str, dateF
     if dateFrom: clauses.append(f"PRMS_DT >= '{sanitize_input(dateFrom.replace("-", ""))}'")
     if dateTo: clauses.append(f"PRMS_DT <= '{sanitize_input(dateTo.replace("-", ""))}'")
     return " AND ".join(clauses)
-
-def clean_text_live(text):
-    if not text: return ""
-    return re.sub(r'[^\w\s]', ' ', str(text))
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def serve_dashboard():
@@ -119,47 +109,8 @@ def get_dashboard_data(
             except Exception:
                 pass
 
-        # 차트 1: 제조사 랭킹
-        mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
-        
-        # 차트 2: 🚀 월별 신제품 런칭 추이 (신규 반영)
-        trend_query = f"""
-            SELECT SUBSTRING(PRMS_DT, 1, 6) as ym, COUNT(*) as count 
-            FROM '{file_path}' 
-            WHERE {where_sql} AND LENGTH(PRMS_DT) = 8
-            GROUP BY ym 
-            ORDER BY ym ASC
-        """
-        trend_chart_raw = query_to_dict(cursor, trend_query)
-        # YYYYMM 형식을 YYYY-MM 형태로 변환하여 반환
-        trend_chart = [{"month": f"{r['ym'][:4]}-{r['ym'][4:]}", "count": r['count']} for r in trend_chart_raw if len(r['ym']) == 6]
-
-        # 차트 3: 품목명 랭킹
-        pname_chart = []
-        summary_file = get_summary_path(dataType)
-        has_specific_filter = (company and company != "ALL") or (ptype and ptype != "ALL") or pname or rawmtrl
-        
-        if not has_specific_filter and os.path.exists(summary_file):
-            with open(summary_file, 'r', encoding='utf-8') as f:
-                summary_data = json.load(f)
-                pname_chart = summary_data.get("pname_chart", [])[:10]
-        else:
-            try:
-                pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != '' LIMIT 1000").fetchall()
-                pname_words = []
-                for row in pname_rows:
-                    if row[0]: 
-                        clean_str = clean_text_live(row[0])
-                        pname_words.extend([w.strip() for w in clean_str.split() if len(w.strip()) > 1])
-                pname_chart = [{"keyword": k, "count": v} for k, v in Counter(pname_words).most_common(10)]
-            except Exception:
-                pass
-
         return {
             "kpi": kpi, 
-            "mfr_chart": mfr_chart, 
-            "trend_chart": trend_chart,
-            "pname_chart": pname_chart,
             "target_weekly_stats": target_stats
         }
     finally:

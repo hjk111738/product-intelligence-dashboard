@@ -2,11 +2,8 @@ import polars as pl
 import os
 import glob
 import time
-import json
-from collections import Counter
-import re
 
-# 🟢 식품 핵심 타겟 품목 (B2C 완제품 33개)
+# 🟢 식품 핵심 타겟 품목 (B2C 완제품)
 TARGET_FOOD_PTYPES = {
     "과자", "캔디류", "초콜릿가공품", "추잉껌", "빵류", "초콜릿", "밀크초콜릿", "준초콜릿", 
     "빙과", "당류가공품", "땅콩 또는 견과류가공품", 
@@ -17,48 +14,12 @@ TARGET_FOOD_PTYPES = {
     "기타가공품", "두류가공품"
 }
 
-# 🔴 축산물 핵심 타겟 품목 (B2C 완제품 15개)
+# 🔴 축산물 핵심 타겟 품목 (B2C 완제품)
 TARGET_MEAT_PTYPES = {
     "비유지방아이스크림", "샤베트", "아이스밀크", "아이스크림", "가공유", "농후발효유", 
     "발효유", "영아용 조제유", "우유", "유당분해우유", "유산균첨가우유", 
     "베이컨류", "분쇄가공육제품", "소시지", "프레스햄"
 }
-
-def clean_text(text):
-    """특수문자 제거 후 순수 텍스트만 반환 (정규표현식)"""
-    if not text: return ""
-    return re.sub(r'[^\w\s]', ' ', str(text))
-
-def generate_text_summary(df, data_type):
-    print("🔄 텍스트 마이닝 정밀 분석 중 (키워드/원재료 추출)...")
-    
-    # 1. 품목명(PRDLST_NM) 키워드 정밀 분석 (특수문자 제거 후 띄어쓰기)
-    pname_list = df.select("PRDLST_NM").drop_nulls().to_series().to_list()
-    pname_words = []
-    for p in pname_list:
-        cleaned_p = clean_text(p)
-        pname_words.extend([w.strip() for w in cleaned_p.split() if len(w.strip()) > 1])
-    
-    top_pnames = [{"keyword": k, "count": v} for k, v in Counter(pname_words).most_common(50)]
-
-    # 2. 원재료명(RAWMTRL_NM) 정밀 분석 (쉼표 분리 후 여백 제거)
-    raw_list = df.select("RAWMTRL_NM").drop_nulls().to_series().to_list()
-    raw_materials = []
-    for r in raw_list:
-        raw_materials.extend([m.strip() for m in str(r).split(',') if len(m.strip()) > 0])
-        
-    top_raws = [{"material": k, "count": v} for k, v in Counter(raw_materials).most_common(50)]
-
-    summary_data = {
-        "pname_chart": top_pnames,
-        "raw_chart": top_raws
-    }
-    
-    summary_file = f"summary_{data_type}.json"
-    with open(summary_file, 'w', encoding='utf-8') as f:
-        json.dump(summary_data, f, ensure_ascii=False, indent=2)
-        
-    print(f"✅ 텍스트 마이닝 요약 완료: {summary_file}")
 
 def process_folder(folder_name, output_parquet_name, data_type):
     if not os.path.exists(folder_name):
@@ -93,7 +54,6 @@ def process_folder(folder_name, output_parquet_name, data_type):
 
     combined_df = pl.concat(dfs, how="diagonal")
 
-    # 타겟 완제품군만 남기고 불필요 원료/첨가물 필터링
     print(f"🔄 핵심 모니터링 타겟 품목군 필터링 중...")
     target_set = TARGET_FOOD_PTYPES if data_type == 'food' else TARGET_MEAT_PTYPES
     target_list = list(target_set)
@@ -134,8 +94,6 @@ def process_folder(folder_name, output_parquet_name, data_type):
             pl.col("PRMS_DT").str.replace_all("[^0-9]", "").str.slice(0, 8)
         ).filter(pl.col("PRMS_DT").str.len_chars() == 8)
 
-    generate_text_summary(combined_df, data_type)
-
     combined_df.write_parquet(output_parquet_name, compression="zstd")
     
     p_size = round(os.path.getsize(output_parquet_name) / (1024 * 1024), 2)
@@ -146,7 +104,7 @@ if __name__ == "__main__":
     try:
         process_folder("raw_food", "data_food.parquet", "food")
         process_folder("raw_meat", "data_meat.parquet", "meat")
-        print("\n🎉 모든 데이터 최적화 및 텍스트 마이닝 작업이 성공적으로 완료되었습니다!")
+        print("\n🎉 모든 데이터 최적화 작업이 성공적으로 완료되었습니다!")
     except Exception as e:
         print(f"\n❌ 작업 중 오류가 발생했습니다: {e}")
     finally:

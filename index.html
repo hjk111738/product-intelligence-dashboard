@@ -5,30 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>경쟁사 신제품 동향 & 품목제조보고서 인텔리전스</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .custom-scroll::-webkit-scrollbar { width: 6px; height: 8px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f8fafc; }
         .week-card { transition: all 0.2s ease-in-out; }
         .week-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); border-color: #3b82f6; }
-        
-        .tooltip-icon { position: relative; cursor: help; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #e2e8f0; color: #64748b; border-radius: 50%; font-size: 11px; font-weight: bold; margin-left: 6px; transition: all 0.2s; }
-        .tooltip-icon:hover { background: #3b82f6; color: white; }
-        .tooltip-icon::after { content: attr(data-tooltip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); width: 220px; background: #1e293b; color: white; text-align: center; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 500; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; z-index: 50; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); line-height: 1.4; pointer-events: none; }
-        .tooltip-icon::before { content: ''; position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%); border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; z-index: 50; pointer-events: none; }
-        .tooltip-icon:hover::after, .tooltip-icon:hover::before { opacity: 1; visibility: visible; }
-        
         .smart-date-wrapper { position: relative; display: inline-flex; align-items: center; }
         .smart-date-input { width: 100px; text-align: center; padding-right: 24px; font-variant-numeric: tabular-nums; }
         .smart-date-picker { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); opacity: 0; width: 20px; height: 20px; cursor: pointer; z-index: 10; }
         .smart-date-icon { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #64748b; pointer-events: none; }
+        #appBody { transition: background-color 0.3s ease; }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans" onclick="closeAllDropdowns(event)">
+<body id="appBody" class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans" onclick="closeAllDropdowns(event)">
     <div class="max-w-7xl mx-auto p-6 space-y-6">
         
-        <!-- 상단 헤더 -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200 gap-4">
             <div class="flex items-center gap-3">
                 <div class="p-3 bg-blue-600 text-white rounded-2xl shadow-md font-black text-xl tracking-tight">🚀</div>
@@ -39,27 +31,22 @@
                 </div>
             </div>
             
-            <!-- 🚀 탭 색상 구분 적용 -->
             <div class="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                 <button id="tabFood" onclick="switchTab('food')" class="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">🟢 식품(첨가물)</button>
                 <button id="tabMeat" onclick="switchTab('meat')" class="px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900">🔴 축산물</button>
             </div>
         </header>
 
-        <!-- 품목군 선택 필터 -->
         <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4">
             <div class="text-sm font-black text-slate-800 flex items-center gap-1.5 shrink-0">
                 <span>🎯 품목군 선택:</span>
             </div>
             <div id="groupFilterContainer" class="flex flex-wrap items-center gap-2 w-full"></div>
             <div class="shrink-0 pl-2 border-l border-slate-200 ml-auto">
-                <button onclick="clearGroupSelection()" class="px-3 py-1.5 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg text-xs font-bold transition">
-                    ❌ 선택 해제
-                </button>
+                <button onclick="clearGroupSelection()" class="px-3 py-1.5 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg text-xs font-bold transition">❌ 선택 해제</button>
             </div>
         </div>
 
-        <!-- 요약 카드 & 스마트 날짜 입력 영역 -->
         <div class="bg-white p-6 rounded-2xl border border-blue-100 shadow-md bg-gradient-to-br from-white to-blue-50/30">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4 border-b border-slate-200 pb-4">
                 <div>
@@ -73,41 +60,32 @@
                 
                 <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                     <label class="text-xs font-bold text-slate-600 shrink-0 ml-1">조회 기간:</label>
-                    
                     <div class="smart-date-wrapper">
-                        <input type="text" id="targetStartText" placeholder="YYYYMMDD" maxlength="10" 
-                               class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
+                        <input type="text" id="targetStartText" placeholder="YYYYMMDD" maxlength="10" class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
                         <svg class="w-4 h-4 smart-date-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         <input type="date" id="targetStartDate" class="smart-date-picker">
                     </div>
-                    
                     <span class="text-slate-400 text-sm font-bold px-1">~</span>
-                    
                     <div class="smart-date-wrapper">
-                        <input type="text" id="targetEndText" placeholder="YYYYMMDD" maxlength="10" 
-                               class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
+                        <input type="text" id="targetEndText" placeholder="YYYYMMDD" maxlength="10" class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
                         <svg class="w-4 h-4 smart-date-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         <input type="date" id="targetEndDate" class="smart-date-picker">
                     </div>
-                    
                     <button onclick="loadDashboard()" class="ml-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">적용</button>
                 </div>
             </div>
-
             <div id="targetWeekGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 <p class="text-sm text-slate-400 col-span-full">데이터를 불러오는 중입니다...</p>
             </div>
         </div>
 
-        <!-- 통합 검색 필터 -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 class="text-sm font-black text-slate-800 mb-2 border-b border-slate-100 pb-2">🔍 통합 상세 검색 필터</h3>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
                 <div class="relative" onclick="event.stopPropagation()">
                     <label class="block text-xs font-bold text-slate-500 mb-1">제조사 (다중 선택)</label>
                     <button type="button" onclick="toggleDropdown('mfrDropdown')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-left flex justify-between items-center focus:ring-2 focus:ring-blue-500">
-                        <span id="mfrBtnText" class="truncate">전체 제조사</span>
-                        <span class="text-slate-400 text-[10px]">▼</span>
+                        <span id="mfrBtnText" class="truncate">전체 제조사</span><span class="text-slate-400 text-[10px]">▼</span>
                     </button>
                     <div id="mfrDropdown" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2">
                         <input type="text" id="mfrSearch" oninput="filterDropdownList('mfr')" placeholder="제조사 검색..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
@@ -118,12 +96,10 @@
                         <div id="mfrList" class="max-h-48 overflow-y-auto space-y-1 custom-scroll text-xs"></div>
                     </div>
                 </div>
-
                 <div class="relative" onclick="event.stopPropagation()">
                     <label class="block text-xs font-bold text-slate-500 mb-1">품목유형 (다중 선택)</label>
                     <button type="button" onclick="toggleDropdown('ptypeDropdown')" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-left flex justify-between items-center focus:ring-2 focus:ring-blue-500">
-                        <span id="ptypeBtnText" class="truncate">전체 유형</span>
-                        <span class="text-slate-400 text-[10px]">▼</span>
+                        <span id="ptypeBtnText" class="truncate">전체 유형</span><span class="text-slate-400 text-[10px]">▼</span>
                     </button>
                     <div id="ptypeDropdown" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2">
                         <input type="text" id="ptypeSearch" oninput="filterDropdownList('ptype')" placeholder="품목유형 검색..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
@@ -134,27 +110,18 @@
                         <div id="ptypeList" class="max-h-48 overflow-y-auto space-y-1 custom-scroll text-xs"></div>
                     </div>
                 </div>
-
                 <div>
                     <label class="block text-xs font-bold text-slate-500 mb-1">품목명 검색</label>
                     <input type="text" id="pnameInput" placeholder="예: 단백질, 마라" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500">
                 </div>
-
                 <div>
                     <label class="block text-xs font-bold text-slate-500 mb-1">원재료명 검색</label>
                     <input type="text" id="rawmtrlInput" placeholder="예: 대체당, 천일염" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center pt-2 border-t border-slate-100">
-                <div class="flex items-center gap-2">
-                    <label class="text-xs font-bold text-slate-500">등록일자(From)</label>
-                    <input type="date" id="dateFrom" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
-                </div>
-                <div class="flex items-center gap-2">
-                    <label class="text-xs font-bold text-slate-500">등록일자(To)</label>
-                    <input type="date" id="dateTo" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold">
-                </div>
+                <div class="flex items-center gap-2"><label class="text-xs font-bold text-slate-500">등록일자(From)</label><input type="date" id="dateFrom" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold"></div>
+                <div class="flex items-center gap-2"><label class="text-xs font-bold text-slate-500">등록일자(To)</label><input type="date" id="dateTo" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-semibold"></div>
                 <div class="flex gap-2 col-span-2 justify-end">
                     <button onclick="applyFilters()" class="w-32 bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-lg text-xs shadow-sm">조건 검색</button>
                     <button onclick="resetFilters()" class="w-24 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold">초기화</button>
@@ -162,48 +129,16 @@
             </div>
         </div>
 
-        <!-- KPI 카드 -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-bold text-slate-400 uppercase">전체 기간 누적 품목 수</p>
-                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiItems">0</p>
-            </div>
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-bold text-slate-400 uppercase">출시 제조사 수</p>
-                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiCompanies">0</p>
-            </div>
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-bold text-slate-400 uppercase">분석 카테고리 수</p>
-                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiPtypes">0</p>
-            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">전체 기간 누적 품목 수</p><p class="text-3xl font-black text-slate-800 mt-1" id="kpiItems">0</p></div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">출시 제조사 수</p><p class="text-3xl font-black text-slate-800 mt-1" id="kpiCompanies">0</p></div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><p class="text-xs font-bold text-slate-400 uppercase">분석 카테고 수</p><p class="text-3xl font-black text-slate-800 mt-1" id="kpiPtypes">0</p></div>
         </div>
 
-        <!-- 3개의 차트 영역 -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <h2 class="text-sm font-black text-slate-800 mb-3">Top 제조사별 런칭 규모 (Top 8)</h2>
-                <div class="h-64 relative"><canvas id="mfrChart"></canvas></div>
-            </div>
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <h2 class="text-sm font-black text-slate-800 mb-3 flex items-center">
-                    품목명 핵심 키워드 랭킹 
-                    <span class="tooltip-icon" data-tooltip="DB 내 품목명에서 특수문자를 제거하고, 띄어쓰기 기준으로 핵심 단어를 분리하여 출현 빈도순으로 집계한 결과입니다.">?</span>
-                </h2>
-                <div class="h-64 relative"><canvas id="pnameChart"></canvas></div>
-            </div>
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <h2 class="text-sm font-black text-slate-800 mb-3">월별 신제품 등록 추이</h2>
-                <div class="h-64 relative"><canvas id="trendChart"></canvas></div>
-            </div>
-        </div>
-
-        <!-- 하단 데이터 테이블 -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4" id="tableSection">
             <div class="flex justify-between items-center">
                 <h2 class="text-sm font-black text-slate-800">품목제조보고서 상세 목록 (<span id="totalCountText" class="text-blue-600">0건</span>)</h2>
-                <button onclick="downloadCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm">
-                    📥 CSV 다운로드
-                </button>
+                <button onclick="downloadCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm">📥 CSV 다운로드</button>
             </div>
             <div class="overflow-x-auto max-h-[500px] border border-slate-200 rounded-xl custom-scroll">
                 <table class="min-w-full text-left text-xs divide-y divide-slate-200 relative">
@@ -224,444 +159,53 @@
             </div>
             <div id="pagination" class="flex justify-center items-center gap-2 pt-2"></div>
         </div>
-        
-        <footer class="text-center text-xs font-semibold text-slate-400 mt-8 pb-4">
-            &copy; 2026 Lotte Wellfood Food Marketing Strategy Team. All rights reserved.
-        </footer>
+        <footer class="text-center text-xs font-semibold text-slate-400 mt-8 pb-4">&copy; 2026 Lotte Wellfood Food Marketing Strategy Team. All rights reserved.</footer>
     </div>
 
-    <!-- 원재료명 상세 모달 -->
     <div id="detailModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4" onclick="closeModal()">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
             <div class="p-5 border-b border-slate-200 flex justify-between items-start">
-                <div>
-                    <h3 id="modalTitle" class="text-lg font-black text-slate-900 leading-tight"></h3>
-                    <p id="modalSubtitle" class="text-xs font-semibold text-blue-600 mt-1"></p>
-                </div>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+                <div><h3 id="modalTitle" class="text-lg font-black text-slate-900 leading-tight"></h3><p id="modalSubtitle" class="text-xs font-semibold text-blue-600 mt-1"></p></div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
             <div class="p-5 overflow-y-auto custom-scroll">
-                <h4 class="text-sm font-bold text-slate-700 mb-2">원재료명 구성 상세</h4>
-                <p id="modalContent" class="text-sm text-slate-600 leading-relaxed break-words"></p>
+                <h4 class="text-sm font-bold text-slate-700 mb-2">원재료명 구성 상세</h4><p id="modalContent" class="text-sm text-slate-600 leading-relaxed break-words"></p>
             </div>
         </div>
     </div>
 
     <script>
-        let currentTab = 'food';
-        let currentPage = 1;
-        let sortCol = 'PRMS_DT';
-        let sortAsc = false;
-        
-        let mfrChart = null;
-        let pnameChart = null;
-        let trendChart = null;
-
-        let allCompanies = [];
-        let allPtypes = [];
-        let selectedCompanies = new Set();
-        let selectedPtypes = new Set();
-
-        let globalWeekStats = null;
-
-        const PALETTE = ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#10B981', '#34D399', '#6EE7B7', '#F59E0B', '#FBBF24', '#FCD34D'];
-
-        const FOOD_GROUPS = {
-            "🍪 스낵 & 디저트": ["과자", "캔디류", "초콜릿가공품", "추잉껌", "빵류", "초콜릿", "밀크초콜릿", "준초콜릿", "빙과", "당류가공품", "땅콩 또는 견과류가공품"],
-            "🥘 간편식(HMR) & 소스": ["만두", "어육소시지", "식육함유가공품", "즉석조리식품", "신선편의식품", "소스", "마요네즈", "토마토케첩", "복합조미식품"],
-            "🥤 음료 & 기호식품": ["고형차", "커피", "과.채주스", "혼합음료", "유산균음료", "액상차", "과.채음료"],
-            "👶 특수 영양식": ["기타 영.유아식", "영아용 조제식", "성장기용 조제식", "임산.수유부용 식품"],
-            "🍲 일반 가공식품": ["기타가공품", "두류가공품"]
-        };
-        const MEAT_GROUPS = {
-            "🥛 유가공 완제품": ["비유지방아이스크림", "샤베트", "아이스밀크", "아이스크림", "가공유", "농후발효유", "발효유", "영아용 조제유", "우유", "유당분해우유", "유산균첨가우유"],
-            "🥩 육가공 완제품": ["베이컨류", "분쇄가공육제품", "소시지", "프레스햄"]
-        };
-        
-        let activeGroup = null;
-
-        function setupSmartDateInputs() {
-            const setups = [
-                { textId: 'targetStartText', dateId: 'targetStartDate' },
-                { textId: 'targetEndText', dateId: 'targetEndDate' }
-            ];
-
-            setups.forEach(s => {
-                const textEl = document.getElementById(s.textId);
-                const dateEl = document.getElementById(s.dateId);
-
-                dateEl.addEventListener('change', (e) => {
-                    textEl.value = e.target.value;
-                });
-
-                textEl.addEventListener('input', function (e) {
-                    let val = e.target.value.replace(/[^0-9]/g, '');
-                    if (val.length >= 5 && val.length <= 6) val = val.slice(0,4) + '-' + val.slice(4);
-                    else if (val.length >= 7) val = val.slice(0,4) + '-' + val.slice(4,6) + '-' + val.slice(6,8);
-                    e.target.value = val;
-                    if (val.length === 10) dateEl.value = val;
-                });
-            });
-        }
-
-        function getWeekRange() {
-            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
-            const now = new Date(Date.now() - tzoffset);
-            const day = now.getDay();
-            const diff = now.getDate() - day + (day == 0 ? -6:1);
-            
-            const start = new Date(now.setDate(diff));
-            const end = new Date(now.setDate(start.getDate() + 6));
-            
-            return {
-                start: start.toISOString().split('T')[0],
-                end: end.toISOString().split('T')[0]
-            };
-        }
-
-        async function init() {
-            setupSmartDateInputs();
-            const range = getWeekRange();
-            
-            document.getElementById('targetStartDate').value = range.start;
-            document.getElementById('targetStartText').value = range.start;
-            document.getElementById('targetEndDate').value = range.end;
-            document.getElementById('targetEndText').value = range.end;
-            
-            // 🚀 초기 디자인 렌더링을 위해 switchTab 로직을 여기서도 동일하게 설정
-            const foodActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-            const meatActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-red-50 text-red-700 ring-1 ring-red-200";
-            const inactive = "px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900";
-            
-            document.getElementById('tabFood').className = currentTab === 'food' ? foodActive : inactive;
-            document.getElementById('tabMeat').className = currentTab === 'meat' ? meatActive : inactive;
-
-            renderGroupButtons();
-            renderWeekCards();
-            
-            await loadMeta();
-            await loadDashboard();
-            await loadDetails(1);
-        }
-
-        // 🚀 탭 선택 시 직관적인 색상 스위칭 (식품=녹색계열, 축산물=적색계열)
-        function switchTab(tab) {
-            currentTab = tab;
-            
-            const foodActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-            const meatActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-red-50 text-red-700 ring-1 ring-red-200";
-            const inactive = "px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900";
-
-            document.getElementById('tabFood').className = tab === 'food' ? foodActive : inactive;
-            document.getElementById('tabMeat').className = tab === 'meat' ? meatActive : inactive;
-            
-            selectedCompanies.clear(); selectedPtypes.clear(); 
-            activeGroup = null;
-            
-            // 탭 변경 시 날짜 텍스트/달력 초기화
-            const range = getWeekRange();
-            document.getElementById('targetStartDate').value = range.start;
-            document.getElementById('targetStartText').value = range.start;
-            document.getElementById('targetEndDate').value = range.end;
-            document.getElementById('targetEndText').value = range.end;
-
-            renderGroupButtons();
-            loadMeta().then(() => { loadDashboard(); loadDetails(1); });
-        }
-
-        function renderGroupButtons() {
-            const container = document.getElementById('groupFilterContainer');
-            const groups = currentTab === 'food' ? FOOD_GROUPS : MEAT_GROUPS;
-            let html = ``;
-            for (const [groupName, _] of Object.entries(groups)) {
-                const isActive = (activeGroup === groupName);
-                const btnClass = isActive 
-                    ? "px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm border border-blue-600 transition" 
-                    : "px-3 py-1.5 bg-white text-slate-600 rounded-lg text-xs font-bold shadow-sm border border-slate-200 hover:bg-slate-50 transition";
-                html += `<button onclick="toggleGroup('${groupName}')" class="${btnClass}">${groupName}</button>`;
-            }
-            container.innerHTML = html;
-        }
-
-        function toggleGroup(groupName) {
-            if (activeGroup === groupName) {
-                activeGroup = null;
-            } else {
-                activeGroup = groupName;
-            }
-            renderGroupButtons();
-            renderWeekCards(); 
-        }
-
-        function clearGroupSelection() {
-            activeGroup = null;
-            renderGroupButtons();
-            renderWeekCards();
-        }
-
-        async function loadMeta() {
-            try {
-                const res = await fetch(`/api/meta?dataType=${currentTab}`);
-                const data = await res.json();
-                allCompanies = data.companies || []; allPtypes = data.ptypes || [];
-                renderCheckboxList('mfr', allCompanies); renderCheckboxList('ptype', allPtypes);
-                updateBtnTexts();
-            } catch (e) {
-                console.error("loadMeta error:", e);
-            }
-        }
-
-        function renderCheckboxList(type, list) {
-            const container = document.getElementById(`${type}List`);
-            const selectedSet = (type === 'mfr') ? selectedCompanies : selectedPtypes;
-            container.innerHTML = list.map(item => `
-                <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer">
-                    <input type="checkbox" value="${item}" ${selectedSet.has(item) ? 'checked' : ''} onchange="toggleSelect('${type}', '${item}')" class="rounded text-blue-600 focus:ring-0">
-                    <span class="truncate">${item}</span>
-                </label>
-            `).join('');
-        }
-
-        function toggleDropdown(id) { const el = document.getElementById(id); const isHidden = el.classList.contains('hidden'); closeAllDropdowns(); if (isHidden) el.classList.remove('hidden'); }
-        function closeAllDropdowns() { document.getElementById('mfrDropdown').classList.add('hidden'); document.getElementById('ptypeDropdown').classList.add('hidden'); }
-        function filterDropdownList(type) { const q = document.getElementById(`${type}Search`).value.toLowerCase(); renderCheckboxList(type, (type === 'mfr' ? allCompanies : allPtypes).filter(item => item.toLowerCase().includes(q))); }
-        function toggleSelect(type, val) { const set = (type === 'mfr') ? selectedCompanies : selectedPtypes; set.has(val) ? set.delete(val) : set.add(val); updateBtnTexts(); }
-        function selectAll(type, check) { const set = (type === 'mfr') ? selectedCompanies : selectedPtypes; const src = (type === 'mfr') ? allCompanies : allPtypes; set.clear(); if (check) src.forEach(i => set.add(i)); renderCheckboxList(type, src); updateBtnTexts(); }
-        function updateBtnTexts() { document.getElementById('mfrBtnText').textContent = selectedCompanies.size === 0 ? '전체 제조사' : `제조사 (${selectedCompanies.size}개 선택)`; document.getElementById('ptypeBtnText').textContent = selectedPtypes.size === 0 ? '전체 유형' : `품목유형 (${selectedPtypes.size}개 선택)`; }
-
-        function getFilterParams() {
-            return new URLSearchParams({
-                dataType: currentTab,
-                company: selectedCompanies.size === 0 ? 'ALL' : Array.from(selectedCompanies).join(','),
-                ptype: selectedPtypes.size === 0 ? 'ALL' : Array.from(selectedPtypes).join(','),
-                pname: document.getElementById('pnameInput').value.trim(),
-                rawmtrl: document.getElementById('rawmtrlInput').value.trim(),
-                dateFrom: document.getElementById('dateFrom').value,
-                dateTo: document.getElementById('dateTo').value,
-                targetStartDate: document.getElementById('targetStartText').value,
-                targetEndDate: document.getElementById('targetEndText').value
-            });
-        }
-
-        async function loadDashboard() {
-            try {
-                const params = getFilterParams();
-                const res = await fetch(`/api/dashboard?${params}`);
-                const data = await res.json();
-
-                document.getElementById('kpiItems').textContent = Number(data.kpi.total_items || 0).toLocaleString() + ' 개';
-                document.getElementById('kpiCompanies').textContent = Number(data.kpi.company_count || 0).toLocaleString() + ' 개사';
-                document.getElementById('kpiPtypes').textContent = Number(data.kpi.ptype_count || 0).toLocaleString() + ' 개';
-
-                globalWeekStats = data.target_weekly_stats;
-                renderWeekCards();
-
-                if (mfrChart) mfrChart.destroy();
-                mfrChart = new Chart(document.getElementById('mfrChart'), { 
-                    type: 'bar', 
-                    data: { labels: (data.mfr_chart || []).map(m => m.company), datasets: [{ label: '신제품 수', data: (data.mfr_chart || []).map(m => m.count), backgroundColor: PALETTE, borderRadius: 4 }] }, 
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
-                });
-                
-                if (pnameChart) pnameChart.destroy();
-                pnameChart = new Chart(document.getElementById('pnameChart'), { 
-                    type: 'bar', 
-                    data: { labels: (data.pname_chart || []).map(p => p.keyword), datasets: [{ label: '등장 빈도', data: (data.pname_chart || []).map(p => p.count), backgroundColor: PALETTE, borderRadius: 4 }] }, 
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
-                });
-
-                if (trendChart) trendChart.destroy();
-                trendChart = new Chart(document.getElementById('trendChart'), { 
-                    type: 'line', 
-                    data: { 
-                        labels: (data.trend_chart || []).map(t => t.month), 
-                        datasets: [{ 
-                            label: '신제품 등록 건수', 
-                            data: (data.trend_chart || []).map(t => t.count), 
-                            borderColor: '#3b82f6', 
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-                            borderWidth: 2, 
-                            pointRadius: 4, 
-                            fill: true, 
-                            tension: 0.2 
-                        }] 
-                    }, 
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-                        plugins: { legend: { display: false } } 
-                    } 
-                });
-            } catch (e) {
-                console.error("loadDashboard error:", e);
-            }
-        }
-
-        function renderWeekCards() {
-            const gridContainer = document.getElementById('targetWeekGrid');
-            
-            if (!activeGroup) {
-                gridContainer.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 font-semibold bg-white/60 rounded-2xl border border-dashed border-slate-300">
-                    <span class="text-2xl block mb-2">💡</span>
-                    상단에서 분석할 품목군을 선택해 주세요.
-                </div>`;
-                document.getElementById('targetWeekTotal').textContent = `0건`;
-                return;
-            }
-
-            if (!globalWeekStats || !globalWeekStats.items || globalWeekStats.items.length === 0) {
-                gridContainer.innerHTML = `<div class="col-span-full py-10 text-center text-slate-400 font-medium bg-slate-50/50 rounded-xl border border-dashed border-slate-200">해당 기간에는 등록된 신제품 내역이 없습니다.</div>`;
-                document.getElementById('targetWeekTotal').textContent = `0건`;
-                return;
-            }
-
-            let allowedPtypes = new Set();
-            const groups = currentTab === 'food' ? FOOD_GROUPS : MEAT_GROUPS;
-            if(groups[activeGroup]) groups[activeGroup].forEach(pt => allowedPtypes.add(pt));
-
-            const filteredItems = globalWeekStats.items.filter(item => allowedPtypes.has(item.ptype));
-
-            if (filteredItems.length === 0) {
-                gridContainer.innerHTML = `<div class="col-span-full py-10 text-center text-slate-400 font-medium bg-slate-50/50 rounded-xl border border-dashed border-slate-200">선택한 품목군에 해당하는 신제품 내역이 없습니다.</div>`;
-                document.getElementById('targetWeekTotal').textContent = `0건`;
-                return;
-            }
-
-            let totalFilteredCount = 0;
-            gridContainer.innerHTML = filteredItems.map(item => {
-                totalFilteredCount += item.count;
-                
-                const len = String(item.count).length;
-                let fontSizeClass = 'text-2xl'; 
-                if (len === 4) fontSizeClass = 'text-xl';
-                else if (len >= 5) fontSizeClass = 'text-lg';
-                
-                return `
-                <div onclick="filterByWeekAndType('${document.getElementById('targetStartText').value}', '${document.getElementById('targetEndText').value}', '${item.ptype}')" 
-                     class="week-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer flex flex-col justify-between h-32 group">
-                    <div>
-                        <p class="text-[11px] font-bold text-slate-400 mb-1 group-hover:text-blue-500 transition">품목유형</p>
-                        <h3 class="text-base font-black text-slate-800 leading-tight group-hover:text-blue-700 truncate" title="${item.ptype}">${item.ptype}</h3>
-                    </div>
-                    <div class="flex justify-end items-end mt-2 whitespace-nowrap overflow-hidden">
-                        <span class="${fontSizeClass} font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg tracking-tight inline-flex items-baseline">
-                            ${Number(item.count).toLocaleString()}
-                            <span class="text-xs font-bold text-blue-400 ml-1">건</span>
-                        </span>
-                    </div>
-                </div>
-            `}).join('');
-
-            document.getElementById('targetWeekTotal').textContent = `${Number(totalFilteredCount).toLocaleString()}건`;
-        }
-
-        function filterByWeekAndType(startDate, endDate, ptype) {
-            document.getElementById('dateFrom').value = startDate;
-            document.getElementById('dateTo').value = endDate;
-            
-            selectedPtypes.clear();
-            if (ptype) selectedPtypes.add(ptype);
-            
-            renderGroupButtons();
-            updateBtnTexts();
-            renderCheckboxList('ptype', allPtypes);
-            
-            applyFilters();
-        }
-
-        async function loadDetails(page = 1) {
-            currentPage = page;
-            const params = getFilterParams();
-            params.append('page', page); params.append('sortCol', sortCol); params.append('sortAsc', sortAsc);
-
-            try {
-                const res = await fetch(`/api/details?${params}`);
-                const result = await res.json();
-                document.getElementById('totalCountText').textContent = `${Number(result.TotalCount || 0).toLocaleString()}건`;
-
-                const tbody = document.getElementById('tableBody');
-                if (!result.Data || result.Data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-slate-400">조건에 일치하는 품목이 없습니다.</td></tr>';
-                    document.getElementById('pagination').innerHTML = '';
-                    return;
-                }
-
-                tbody.innerHTML = result.Data.map(r => `
-                    <tr class="hover:bg-slate-50">
-                        <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap font-medium">${formatDate(r.PRMS_DT)}</td>
-                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${formatDate(r.CHNG_DT)}</td>
-                        <td class="px-4 py-2.5 font-bold text-slate-800 truncate max-w-[120px]" title="${r.BSSH_NM}">${r.BSSH_NM}</td>
-                        <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap">${r.PRDLST_DCNM}</td>
-                        <td class="px-4 py-2.5 font-semibold text-slate-800 truncate max-w-xs" title="${r.PRDLST_NM}">${r.PRDLST_NM}</td>
-                        <td class="px-4 py-2.5 whitespace-nowrap">
-                            <button onclick="openModal('${r.PRDLST_REPORT_NO}', '${encodeURIComponent(r.PRDLST_NM || '')}', '${encodeURIComponent(r.RAWMTRL_NM || '')}')" 
-                                    class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded transition hover:bg-blue-100">
-                                ${r.PRDLST_REPORT_NO}
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
-                renderPagination(result.TotalCount);
-            } catch (e) {
-                console.error("loadDetails error:", e);
-            }
-        }
-
-        function openModal(reportNo, encodedName, encodedRaw) {
-            document.getElementById('modalTitle').textContent = decodeURIComponent(encodedName);
-            document.getElementById('modalSubtitle').textContent = `제조번호: ${reportNo}`;
-            document.getElementById('modalContent').textContent = decodeURIComponent(encodedRaw) || '원재료 정보가 제공되지 않았습니다.';
-            document.getElementById('detailModal').classList.remove('hidden');
-        }
-
-        function closeModal() { document.getElementById('detailModal').classList.add('hidden'); }
-        function formatDate(d) { return (d && d.length === 8) ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : (d || '-'); }
-
-        function renderPagination(totalCount) {
-            const wrapper = document.getElementById('pagination'); wrapper.innerHTML = '';
-            const totalPages = Math.ceil(totalCount / 20);
-            if (totalPages <= 1) return;
-            let start = Math.max(1, currentPage - 2), end = Math.min(totalPages, start + 4);
-            if (currentPage > 1) wrapper.appendChild(createPageBtn('이전', currentPage - 1));
-            for (let i = start; i <= end; i++) wrapper.appendChild(createPageBtn(i, i, i === currentPage));
-            if (currentPage < totalPages) wrapper.appendChild(createPageBtn('다음', currentPage + 1));
-        }
-
-        function createPageBtn(text, page, isActive = false) {
-            const btn = document.createElement('button'); btn.innerText = text;
-            btn.className = `px-3 py-1 rounded text-xs font-bold border ${isActive ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`;
-            btn.onclick = () => loadDetails(page); return btn;
-        }
-
-        function sortTable(col) { sortAsc = (sortCol === col) ? !sortAsc : true; sortCol = col; loadDetails(1); }
-        function applyFilters() { closeAllDropdowns(); loadDashboard(); loadDetails(1); }
-        function resetFilters() {
-            selectedCompanies.clear(); selectedPtypes.clear(); 
-            activeGroup = null; updateBtnTexts();
-            renderGroupButtons(); renderCheckboxList('mfr', allCompanies); renderCheckboxList('ptype', allPtypes);
-            document.getElementById('pnameInput').value = ''; document.getElementById('rawmtrlInput').value = '';
-            document.getElementById('dateFrom').value = ''; document.getElementById('dateTo').value = '';
-            
-            const range = getWeekRange();
-            document.getElementById('targetStartDate').value = range.start;
-            document.getElementById('targetStartText').value = range.start;
-            document.getElementById('targetEndDate').value = range.end;
-            document.getElementById('targetEndText').value = range.end;
-            
-            loadDashboard(); loadDetails(1);
-        }
-        function downloadCSV() {
-            const params = getFilterParams(); params.append('sortCol', sortCol); params.append('sortAsc', sortAsc);
-            window.location.href = `/api/download?${params}`;
-        }
-        document.getElementById('pnameInput').addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
-        document.getElementById('rawmtrlInput').addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
-        document.addEventListener('keydown', function(event) { if (event.key === "Escape") closeModal(); });
-
+        let currentTab='food',currentPage=1,sortCol='PRMS_DT',sortAsc=!1,allCompanies=[],allPtypes=[],selectedCompanies=new Set(),selectedPtypes=new Set(),globalWeekStats=null,activeGroup=null;const FOOD_GROUPS={"🍪 스낵 & 디저트":["과자","캔디류","초콜릿가공품","추잉껌","빵류","초콜릿","밀크초콜릿","준초콜릿","빙과","당류가공품","땅콩 또는 견과류가공품"],"🥘 간편식(HMR) & 소스":["만두","어육소시지","식육함유가공품","즉석조리식품","신선편의식품","소스","마요네즈","토마토케첩","복합조미식품"],"🥤 음료 & 기호식품":["고형차","커피","과.채주스","혼합음료","유산균음료","액상차","과.채음료"],"👶 특수 영양식":["기타 영.유아식","영아용 조제식","성장기용 조제식","임산.수유부용 식품"],"🍲 일반 가공식품":["기타가공품","두류가공품"]},MEAT_GROUPS={"🥛 유가공 완제품":["비유지방아이스크림","샤베트","아이스밀크","아이스크림","가공유","농후발효유","발효유","영아용 조제유","우유","유당분해우유","유산균첨가우유"],"🥩 육가공 완제품":["베이컨류","분쇄가공육제품","소시지","프레스햄"]};
+        function setupSmartDateInputs(){[{t:'targetStartText',d:'targetStartDate'},{t:'targetEndText',d:'targetEndDate'}].forEach(s=>{const t=document.getElementById(s.t),d=document.getElementById(s.d);d.addEventListener('change',e=>{t.value=e.target.value;});t.addEventListener('input',function(e){let v=e.target.value.replace(/[^0-9]/g,'');if(v.length>=5&&v.length<=6)v=v.slice(0,4)+'-'+v.slice(4);else if(v.length>=7)v=v.slice(0,4)+'-'+v.slice(4,6)+'-'+v.slice(6,8);e.target.value=v;if(v.length===10)d.value=v;});});}
+        function getWeekRange(){const z=(new Date()).getTimezoneOffset()*60000,n=new Date(Date.now()-z),d=n.getDay(),f=n.getDate()-d+(d==0?-6:1),s=new Date(n.setDate(f)),e=new Date(n.setDate(s.getDate()+6));return{start:s.toISOString().split('T')[0],end:e.toISOString().split('T')[0]};}
+        async function init(){setupSmartDateInputs();const r=getWeekRange();document.getElementById('targetStartDate').value=r.start;document.getElementById('targetStartText').value=r.start;document.getElementById('targetEndDate').value=r.end;document.getElementById('targetEndText').value=r.end;const fA="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",mA="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-red-50 text-red-700 ring-1 ring-red-200",inA="px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900";document.getElementById('tabFood').className=currentTab==='food'?fA:inA;document.getElementById('tabMeat').className=currentTab==='meat'?mA:inA;renderGroupButtons();renderWeekCards();await loadMeta();await loadDashboard();await loadDetails(1);}
+        function switchTab(t){currentTab=t;const b=document.getElementById('appBody');if(t==='food'){b.classList.replace('bg-rose-50','bg-slate-100');document.getElementById('tabFood').className="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";document.getElementById('tabMeat').className="px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900";}else{b.classList.replace('bg-slate-100','bg-rose-50');document.getElementById('tabFood').className="px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900";document.getElementById('tabMeat').className="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-red-50 text-red-700 ring-1 ring-red-200";}selectedCompanies.clear();selectedPtypes.clear();activeGroup=null;renderGroupButtons();loadMeta().then(()=>{loadDashboard();loadDetails(1);});}
+        function renderGroupButtons(){const c=document.getElementById('groupFilterContainer'),g=currentTab==='food'?FOOD_GROUPS:MEAT_GROUPS;let h=``;for(const[n,_]of Object.entries(g)){const a=(activeGroup===n),C=a?"px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm border border-blue-600 transition":"px-3 py-1.5 bg-white text-slate-600 rounded-lg text-xs font-bold shadow-sm border border-slate-200 hover:bg-slate-50 transition";h+=`<button onclick="toggleGroup('${n}')" class="${C}">${n}</button>`;}c.innerHTML=h;}
+        function toggleGroup(g){activeGroup=activeGroup===g?null:g;renderGroupButtons();renderWeekCards();}
+        function clearGroupSelection(){activeGroup=null;renderGroupButtons();renderWeekCards();}
+        async function loadMeta(){try{const r=await fetch(`/api/meta?dataType=${currentTab}`),d=await r.json();allCompanies=d.companies||[];allPtypes=d.ptypes||[];renderCheckboxList('mfr',allCompanies);renderCheckboxList('ptype',allPtypes);updateBtnTexts();}catch(e){}}
+        function renderCheckboxList(t,l){const c=document.getElementById(`${t}List`),S=t==='mfr'?selectedCompanies:selectedPtypes;c.innerHTML=l.map(i=>`<label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer"><input type="checkbox" value="${i}" ${S.has(i)?'checked':''} onchange="toggleSelect('${t}','${i}')" class="rounded text-blue-600 focus:ring-0"><span class="truncate">${i}</span></label>`).join('');}
+        function toggleDropdown(i){const e=document.getElementById(i),h=e.classList.contains('hidden');closeAllDropdowns();if(h)e.classList.remove('hidden');}
+        function closeAllDropdowns(){document.getElementById('mfrDropdown').classList.add('hidden');document.getElementById('ptypeDropdown').classList.add('hidden');}
+        function filterDropdownList(t){const q=document.getElementById(`${t}Search`).value.toLowerCase();renderCheckboxList(t,(t==='mfr'?allCompanies:allPtypes).filter(i=>i.toLowerCase().includes(q)));}
+        function toggleSelect(t,v){const s=t==='mfr'?selectedCompanies:selectedPtypes;s.has(v)?s.delete(v):s.add(v);updateBtnTexts();}
+        function selectAll(t,c){const s=t==='mfr'?selectedCompanies:selectedPtypes,S=t==='mfr'?allCompanies:allPtypes;s.clear();if(c)S.forEach(i=>s.add(i));renderCheckboxList(t,S);updateBtnTexts();}
+        function updateBtnTexts(){document.getElementById('mfrBtnText').textContent=selectedCompanies.size===0?'전체 제조사':`제조사 (${selectedCompanies.size}개 선택)`;document.getElementById('ptypeBtnText').textContent=selectedPtypes.size===0?'전체 유형':`품목유형 (${selectedPtypes.size}개 선택)`;}
+        function getFilterParams(){return new URLSearchParams({dataType:currentTab,company:selectedCompanies.size===0?'ALL':Array.from(selectedCompanies).join(','),ptype:selectedPtypes.size===0?'ALL':Array.from(selectedPtypes).join(','),pname:document.getElementById('pnameInput').value.trim(),rawmtrl:document.getElementById('rawmtrlInput').value.trim(),dateFrom:document.getElementById('dateFrom').value,dateTo:document.getElementById('dateTo').value,targetStartDate:document.getElementById('targetStartText').value,targetEndDate:document.getElementById('targetEndText').value});}
+        async function loadDashboard(){try{const p=getFilterParams(),r=await fetch(`/api/dashboard?${p}`),d=await r.json();document.getElementById('kpiItems').textContent=Number(d.kpi.total_items||0).toLocaleString()+' 개';document.getElementById('kpiCompanies').textContent=Number(d.kpi.company_count||0).toLocaleString()+' 개사';document.getElementById('kpiPtypes').textContent=Number(d.kpi.ptype_count||0).toLocaleString()+' 개';globalWeekStats=d.target_weekly_stats;renderWeekCards();}catch(e){}}
+        function renderWeekCards(){const g=document.getElementById('targetWeekGrid');if(!activeGroup){g.innerHTML=`<div class="col-span-full py-12 text-center text-slate-500 font-semibold bg-white/60 rounded-2xl border border-dashed border-slate-300"><span class="text-2xl block mb-2">💡</span>상단에서 분석할 품목군을 선택해 주세요.</div>`;document.getElementById('targetWeekTotal').textContent=`0건`;return;}if(!globalWeekStats||!globalWeekStats.items||globalWeekStats.items.length===0){g.innerHTML=`<div class="col-span-full py-10 text-center text-slate-400 font-medium bg-slate-50/50 rounded-xl border border-dashed border-slate-200">해당 기간에는 등록된 신제품 내역이 없습니다.</div>`;document.getElementById('targetWeekTotal').textContent=`0건`;return;}let A=new Set();const G=currentTab==='food'?FOOD_GROUPS:MEAT_GROUPS;if(G[activeGroup])G[activeGroup].forEach(pt=>A.add(pt));const F=globalWeekStats.items.filter(i=>A.has(i.ptype));if(F.length===0){g.innerHTML=`<div class="col-span-full py-10 text-center text-slate-400 font-medium bg-slate-50/50 rounded-xl border border-dashed border-slate-200">선택한 품목군에 해당하는 신제품 내역이 없습니다.</div>`;document.getElementById('targetWeekTotal').textContent=`0건`;return;}let T=0;g.innerHTML=F.map(i=>{T+=i.count;const l=String(i.count).length;let c='text-2xl';if(l===4)c='text-xl';else if(l>=5)c='text-lg';return`<div onclick="filterByWeekAndType('${document.getElementById('targetStartText').value}','${document.getElementById('targetEndText').value}','${i.ptype}')" class="week-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer flex flex-col justify-between h-32 group"><div><p class="text-[11px] font-bold text-slate-400 mb-1 group-hover:text-blue-500 transition">품목유형</p><h3 class="text-base font-black text-slate-800 leading-tight group-hover:text-blue-700 truncate" title="${i.ptype}">${i.ptype}</h3></div><div class="flex justify-end items-end mt-2 whitespace-nowrap overflow-hidden"><span class="${c} font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg tracking-tight inline-flex items-baseline">${Number(i.count).toLocaleString()}<span class="text-xs font-bold text-blue-400 ml-1">건</span></span></div></div>`}).join('');document.getElementById('targetWeekTotal').textContent=`${Number(T).toLocaleString()}건`;}
+        function filterByWeekAndType(s,e,p){document.getElementById('dateFrom').value=s;document.getElementById('dateTo').value=e;selectedPtypes.clear();if(p)selectedPtypes.add(p);renderGroupButtons();updateBtnTexts();renderCheckboxList('ptype',allPtypes);applyFilters();}
+        async function loadDetails(p=1){currentPage=p;const P=getFilterParams();P.append('page',p);P.append('sortCol',sortCol);P.append('sortAsc',sortAsc);try{const r=await fetch(`/api/details?${P}`),R=await r.json();document.getElementById('totalCountText').textContent=`${Number(R.TotalCount||0).toLocaleString()}건`;const t=document.getElementById('tableBody');if(!R.Data||R.Data.length===0){t.innerHTML='<tr><td colspan="6" class="text-center py-6 text-slate-400">조건에 일치하는 품목이 없습니다.</td></tr>';document.getElementById('pagination').innerHTML='';return;}t.innerHTML=R.Data.map(d=>`<tr class="hover:bg-slate-50"><td class="px-4 py-2.5 text-slate-600 whitespace-nowrap font-medium">${formatDate(d.PRMS_DT)}</td><td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${formatDate(d.CHNG_DT)}</td><td class="px-4 py-2.5 font-bold text-slate-800 truncate max-w-[120px]" title="${d.BSSH_NM}">${d.BSSH_NM}</td><td class="px-4 py-2.5 text-slate-600 whitespace-nowrap">${d.PRDLST_DCNM}</td><td class="px-4 py-2.5 font-semibold text-slate-800 truncate max-w-xs" title="${d.PRDLST_NM}">${d.PRDLST_NM}</td><td class="px-4 py-2.5 whitespace-nowrap"><button onclick="openModal('${d.PRDLST_REPORT_NO}','${encodeURIComponent(d.PRDLST_NM||'')}','${encodeURIComponent(d.RAWMTRL_NM||'')}')" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded transition hover:bg-blue-100">${d.PRDLST_REPORT_NO}<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button></td></tr>`).join('');renderPagination(R.TotalCount);}catch(e){}}
+        function openModal(r,n,w){document.getElementById('modalTitle').textContent=decodeURIComponent(n);document.getElementById('modalSubtitle').textContent=`제조번호: ${r}`;document.getElementById('modalContent').textContent=decodeURIComponent(w)||'원재료 정보가 제공되지 않았습니다.';document.getElementById('detailModal').classList.remove('hidden');}
+        function closeModal(){document.getElementById('detailModal').classList.add('hidden');}
+        function formatDate(d){return(d&&d.length===8)?`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`:(d||'-');}
+        function renderPagination(t){const w=document.getElementById('pagination');w.innerHTML='';const p=Math.ceil(t/20);if(p<=1)return;let s=Math.max(1,currentPage-2),e=Math.min(p,s+4);if(currentPage>1)w.appendChild(createPageBtn('이전',currentPage-1));for(let i=s;i<=e;i++)w.appendChild(createPageBtn(i,i,i===currentPage));if(currentPage<p)w.appendChild(createPageBtn('다음',currentPage+1));}
+        function createPageBtn(t,p,a=!1){const b=document.createElement('button');b.innerText=t;b.className=`px-3 py-1 rounded text-xs font-bold border ${a?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`;b.onclick=()=>loadDetails(p);return b;}
+        function sortTable(c){sortAsc=sortCol===c?!sortAsc:!0;sortCol=c;loadDetails(1);}
+        function applyFilters(){closeAllDropdowns();loadDashboard();loadDetails(1);}
+        function resetFilters(){selectedCompanies.clear();selectedPtypes.clear();activeGroup=null;updateBtnTexts();renderGroupButtons();renderCheckboxList('mfr',allCompanies);renderCheckboxList('ptype',allPtypes);document.getElementById('pnameInput').value='';document.getElementById('rawmtrlInput').value='';document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';const r=getWeekRange();document.getElementById('targetStartDate').value=r.start;document.getElementById('targetStartText').value=r.start;document.getElementById('targetEndDate').value=r.end;document.getElementById('targetEndText').value=r.end;loadDashboard();loadDetails(1);}
+        function downloadCSV(){const p=getFilterParams();p.append('sortCol',sortCol);p.append('sortAsc',sortAsc);window.location.href=`/api/download?${p}`;}
+        document.getElementById('pnameInput').addEventListener('keyup',e=>{if(e.key==='Enter')applyFilters();});document.getElementById('rawmtrlInput').addEventListener('keyup',e=>{if(e.key==='Enter')applyFilters();});document.addEventListener('keydown',e=>{if(e.key==="Escape")closeModal();});
         init();
     </script>
 </body>
