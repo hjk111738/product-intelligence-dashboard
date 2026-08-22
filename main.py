@@ -103,7 +103,6 @@ def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pna
         kpi_result = query_to_dict(cursor, f"SELECT COUNT(*) as total_items, COUNT(DISTINCT BSSH_NM) as company_count, COUNT(DISTINCT PRDLST_DCNM) as ptype_count FROM '{file_path}' WHERE {where_sql}")
         kpi = kpi_result[0] if kpi_result else {"total_items": 0, "company_count": 0, "ptype_count": 0}
 
-        # 🚀 타겟 요약 카드 집계 로직
         target_stats = {"label": "", "start_date": "", "end_date": "", "items": [], "total": 0}
         
         if not targetDate:
@@ -124,7 +123,6 @@ def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pna
             str_start = week_start.strftime("%Y%m%d")
             str_end = week_end.strftime("%Y%m%d")
             
-            # 💡 집중 모니터링 품목유형만 필터링
             target_set = TARGET_FOOD_PTYPES if dataType == "food" else TARGET_MEAT_PTYPES
             in_clause_items = ", ".join([f"'{p}'" for p in target_set])
             
@@ -146,7 +144,6 @@ def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pna
                     target_stats["items"].append(r)
                 
         except Exception as e:
-            print("Weekly aggregation error:", e)
             pass
 
         mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
