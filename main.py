@@ -58,7 +58,6 @@ def build_where_clause(company: str, ptype: str, pname: str, rawmtrl: str, dateF
     return " AND ".join(clauses)
 
 def clean_text_live(text):
-    """실시간 검색 파싱용 특수문자 제거기"""
     if not text: return ""
     return re.sub(r'[^\w\s]', ' ', str(text))
 
@@ -104,8 +103,9 @@ def get_dashboard_data(
             str_start = sanitize_input(targetStartDate.replace("-", ""))
             str_end = sanitize_input(targetEndDate.replace("-", ""))
             
+            # 🚀 제조사 수집 로직(STRING_AGG) 제거 -> 더 빠르고 가벼운 쿼리 적용
             target_query = f"""
-                SELECT PRDLST_DCNM as ptype, COUNT(*) as count, STRING_AGG(BSSH_NM, ', ') as mfr_list
+                SELECT PRDLST_DCNM as ptype, COUNT(*) as count
                 FROM '{file_path}'
                 WHERE PRMS_DT >= '{str_start}' AND PRMS_DT <= '{str_end}' 
                 GROUP BY PRDLST_DCNM
@@ -116,15 +116,13 @@ def get_dashboard_data(
                 for r in rows:
                     if r['count'] > 0: 
                         target_stats["total"] += r['count']
-                        mfr_set = list(set([m.strip() for m in r['mfr_list'].split(',') if m.strip()]))
-                        r['top_mfrs'] = ", ".join(mfr_set[:3]) + (" 등" if len(mfr_set) > 3 else "")
+                        # 이제 top_mfrs 로직은 완전히 제외됩니다
                         target_stats["items"].append(r)
             except Exception:
                 pass
 
         mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
         
-        # 🚀 캐시 파일 우선 로드 로직
         pname_chart = []
         raw_chart = []
         summary_file = get_summary_path(dataType)
@@ -138,7 +136,6 @@ def get_dashboard_data(
                 raw_chart = summary_data.get("raw_chart", [])[:10]
         else:
             try:
-                # 동적 필터 적용 시 텍스트 파싱 (최적화 처리)
                 pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != '' LIMIT 1000").fetchall()
                 pname_words = []
                 for row in pname_rows:

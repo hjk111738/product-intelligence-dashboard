@@ -234,7 +234,6 @@
 
         let globalWeekStats = null;
 
-        // 🚀 다채로운 색상 배열 적용
         const PALETTE = ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#10B981', '#34D399', '#6EE7B7', '#F59E0B', '#FBBF24', '#FCD34D'];
 
         const FOOD_GROUPS = {
@@ -376,7 +375,6 @@
                 globalWeekStats = data.target_weekly_stats;
                 renderWeekCards();
 
-                // 🚀 차트에 다채로운 팔레트 색상 적용
                 if (mfrChart) mfrChart.destroy();
                 mfrChart = new Chart(document.getElementById('mfrChart'), { 
                     type: 'bar', 
@@ -435,6 +433,13 @@
             let totalFilteredCount = 0;
             gridContainer.innerHTML = filteredItems.map(item => {
                 totalFilteredCount += item.count;
+                
+                // 🚀 자릿수에 따른 다이내믹 폰트 리사이징 로직 적용
+                const len = String(item.count).length;
+                let fontSizeClass = 'text-2xl'; // 기본 (3자리 이하)
+                if (len === 4) fontSizeClass = 'text-xl';
+                else if (len >= 5) fontSizeClass = 'text-lg';
+                
                 return `
                 <div onclick="filterByWeekAndType('${document.getElementById('targetStartDate').value}', '${document.getElementById('targetEndDate').value}', '${item.ptype}')" 
                      class="week-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer flex flex-col justify-between h-32 group">
@@ -442,14 +447,18 @@
                         <p class="text-[11px] font-bold text-slate-400 mb-1 group-hover:text-blue-500 transition">품목유형</p>
                         <h3 class="text-base font-black text-slate-800 leading-tight group-hover:text-blue-700 truncate" title="${item.ptype}">${item.ptype}</h3>
                     </div>
-                    <div class="flex justify-between items-end mt-2">
-                        <span class="text-[10px] text-slate-400 truncate max-w-[60%]" title="${item.top_mfrs}">${item.top_mfrs}</span>
-                        <span class="text-2xl font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg">${item.count}<span class="text-xs font-bold text-blue-400 ml-0.5">건</span></span>
+                    <!-- 하단 여백 및 텍스트 자동 축소(엑셀 셀맞춤 방식) 적용, whitespace-nowrap으로 줄바꿈 원천차단 -->
+                    <div class="flex justify-end items-end mt-2 whitespace-nowrap overflow-hidden">
+                        <span class="${fontSizeClass} font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg tracking-tight inline-flex items-baseline">
+                            ${Number(item.count).toLocaleString()}
+                            <span class="text-xs font-bold text-blue-400 ml-1">건</span>
+                        </span>
                     </div>
                 </div>
             `}).join('');
 
-            document.getElementById('targetWeekTotal').textContent = `${totalFilteredCount}건`;
+            // 🚀 상단 총 건수에도 1,000 단위 콤마 추가
+            document.getElementById('targetWeekTotal').textContent = `${Number(totalFilteredCount).toLocaleString()}건`;
         }
 
         function filterByWeekAndType(startDate, endDate, ptype) {
