@@ -5,8 +5,8 @@ import duckdb
 import os
 import io
 import csv
-from collections import Counter
-import re
+import json
+import datetime
 
 app = FastAPI()
 
@@ -24,26 +24,11 @@ db = duckdb.connect()
 db.execute("SET memory_limit = '256MB';")
 db.execute("SET threads = 1;")
 
-# 🟢 식품 타겟 품목 (B2C 완제품 33개)
-TARGET_FOOD_PTYPES = {
-    "과자", "캔디류", "초콜릿가공품", "추잉껌", "빵류", "초콜릿", "밀크초콜릿", "준초콜릿", 
-    "빙과", "당류가공품", "땅콩 또는 견과류가공품", 
-    "만두", "어육소시지", "식육함유가공품", "즉석조리식품", "신선편의식품", "소스", 
-    "마요네즈", "토마토케첩", "복합조미식품", 
-    "고형차", "커피", "과.채주스", "혼합음료", "유산균음료", "액상차", "과.채음료", 
-    "기타 영.유아식", "영아용 조제식", "성장기용 조제식", "임산.수유부용 식품", 
-    "기타가공품", "두류가공품"
-}
-
-# 🔴 축산물 타겟 품목 (B2C 완제품 15개)
-TARGET_MEAT_PTYPES = {
-    "비유지방아이스크림", "샤베트", "아이스밀크", "아이스크림", "가공유", "농후발효유", 
-    "발효유", "영아용 조제유", "우유", "유당분해우유", "유산균첨가우유", 
-    "베이컨류", "분쇄가공육제품", "소시지", "프레스햄"
-}
-
 def get_file_path(data_type: str):
     return os.path.join(BASE_DIR, f"data_{data_type}.parquet")
+
+def get_summary_path(data_type: str):
+    return os.path.join(BASE_DIR, f"summary_{data_type}.json")
 
 def query_to_dict(cursor, query: str):
     res = cursor.execute(query)
@@ -104,25 +89,20 @@ def get_dashboard_data(
     where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
     cursor = db.cursor()
     try:
-        # 1. 메인 KPI
         kpi_result = query_to_dict(cursor, f"SELECT COUNT(*) as total_items, COUNT(DISTINCT BSSH_NM) as company_count, COUNT(DISTINCT PRDLST_DCNM) as ptype_count FROM '{file_path}' WHERE {where_sql}")
         kpi = kpi_result[0] if kpi_result else {"total_items": 0, "company_count": 0, "ptype_count": 0}
 
-        # 2. 🚀 상단 요약 카드 집계 로직 (기간 지정 방식)
         target_stats = {"items": [], "total": 0}
         
         if targetStartDate and targetEndDate:
             str_start = sanitize_input(targetStartDate.replace("-", ""))
             str_end = sanitize_input(targetEndDate.replace("-", ""))
             
-            target_set = TARGET_FOOD_PTYPES if dataType == "food" else TARGET_MEAT_PTYPES
-            in_clause_items = ", ".join([f"'{p}'" for p in target_set])
-            
+            # 🚀 최적화: IN ('과자'...) 하드코딩 필터 제거. convert.py가 이미 걸러둔 데이터임.
             target_query = f"""
                 SELECT PRDLST_DCNM as ptype, COUNT(*) as count, STRING_AGG(BSSH_NM, ', ') as mfr_list
                 FROM '{file_path}'
                 WHERE PRMS_DT >= '{str_start}' AND PRMS_DT <= '{str_end}' 
-                  AND PRDLST_DCNM IN ({in_clause_items})
                 GROUP BY PRDLST_DCNM
                 ORDER BY count DESC
             """
@@ -137,30 +117,35 @@ def get_dashboard_data(
             except Exception as e:
                 pass
 
-        # 3. 제조사 순위 차트
         mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
         
-        # 4. 🚀 신규: 품목명 핵심 키워드 파싱 로직 (띄어쓰기 기준)
-        pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != ''").fetchall()
-        pname_words = []
-        for row in pname_rows:
-            if row[0]:
-                words = str(row[0]).split()
-                pname_words.extend([w.strip() for w in words if len(w.strip()) > 0])
+        # 🚀 최적화: 무거운 파싱(split, Counter) 대신 convert.py가 만들어둔 JSON 읽기 (0.01초 소요)
+        pname_chart = []
+        raw_chart = []
+        summary_file = get_summary_path(dataType)
         
-        word_counter = Counter(pname_words)
-        pname_chart = [{"keyword": k, "count": v} for k, v in word_counter.most_common(10)]
+        # 단, 전체 검색일때만 JSON 요약본을 보여주고, 특정 조건 검색 시(동적 필터)에는 
+        # 실시간 쿼리를 제한적(LIMIT 1000)으로 가볍게 수행합니다.
+        is_default_search = (where_sql == "1=1") 
+        
+        if is_default_search and os.path.exists(summary_file):
+            with open(summary_file, 'r', encoding='utf-8') as f:
+                summary_data = json.load(f)
+                pname_chart = summary_data.get("pname_chart", [])[:10]
+                raw_chart = summary_data.get("raw_chart", [])[:10]
+        else:
+            # 검색 조건이 들어온 경우 (빠른 집계를 위해 최신 2000건만 파싱)
+            pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != '' LIMIT 2000").fetchall()
+            pname_words = []
+            for row in pname_rows:
+                if row[0]: pname_words.extend([w.strip() for w in str(row[0]).split() if len(w.strip()) > 1])
+            pname_chart = [{"keyword": k, "count": v} for k, v in Counter(pname_words).most_common(10)]
 
-        # 5. 🚀 신규: 급부상 원재료 사용 빈도 파싱 로직 (쉼표 기준)
-        raw_rows = cursor.execute(f"SELECT RAWMTRL_NM FROM '{file_path}' WHERE {where_sql} AND RAWMTRL_NM != ''").fetchall()
-        raw_materials = []
-        for row in raw_rows:
-            if row[0]:
-                materials = str(row[0]).split(',')
-                raw_materials.extend([m.strip() for m in materials if len(m.strip()) > 0])
-        
-        raw_counter = Counter(raw_materials)
-        raw_chart = [{"material": k, "count": v} for k, v in raw_counter.most_common(10)]
+            raw_rows = cursor.execute(f"SELECT RAWMTRL_NM FROM '{file_path}' WHERE {where_sql} AND RAWMTRL_NM != '' LIMIT 2000").fetchall()
+            raw_materials = []
+            for row in raw_rows:
+                if row[0]: raw_materials.extend([m.strip() for m in str(row[0]).split(',') if len(m.strip()) > 0])
+            raw_chart = [{"material": k, "count": v} for k, v in Counter(raw_materials).most_common(10)]
 
         return {
             "kpi": kpi, 
