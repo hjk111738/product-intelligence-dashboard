@@ -12,12 +12,25 @@
         .custom-scroll::-webkit-scrollbar-track { background: #f8fafc; }
         .week-card { transition: all 0.2s ease-in-out; }
         .week-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); border-color: #3b82f6; }
+        
+        /* 🚀 툴팁(?) 커스텀 CSS */
+        .tooltip-icon { position: relative; cursor: help; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #e2e8f0; color: #64748b; border-radius: 50%; font-size: 11px; font-weight: bold; margin-left: 6px; transition: all 0.2s; }
+        .tooltip-icon:hover { background: #3b82f6; color: white; }
+        .tooltip-icon::after { content: attr(data-tooltip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); width: 220px; background: #1e293b; color: white; text-align: center; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 500; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; z-index: 50; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); line-height: 1.4; pointer-events: none; }
+        .tooltip-icon::before { content: ''; position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%); border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; z-index: 50; pointer-events: none; }
+        .tooltip-icon:hover::after, .tooltip-icon:hover::before { opacity: 1; visibility: visible; }
+        
+        /* 🚀 스마트 날짜 입력창 CSS */
+        .smart-date-wrapper { position: relative; display: inline-flex; align-items: center; }
+        .smart-date-input { width: 100px; text-align: center; padding-right: 24px; font-variant-numeric: tabular-nums; }
+        .smart-date-picker { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); opacity: 0; width: 20px; height: 20px; cursor: pointer; z-index: 10; }
+        .smart-date-icon { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #64748b; pointer-events: none; }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 antialiased font-sans" onclick="closeAllDropdowns(event)">
     <div class="max-w-7xl mx-auto p-6 space-y-6">
         
-        <!-- 상단 헤더 및 탭 -->
+        <!-- 상단 헤더 -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200 gap-4">
             <div class="flex items-center gap-3">
                 <div class="p-3 bg-blue-600 text-white rounded-2xl shadow-md font-black text-xl tracking-tight">🚀</div>
@@ -33,7 +46,7 @@
             </div>
         </header>
 
-        <!-- 품목군 선택 퀵 필터 버튼 영역 -->
+        <!-- 품목군 선택 필터 -->
         <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4">
             <div class="text-sm font-black text-slate-800 flex items-center gap-1.5 shrink-0">
                 <span>🎯 품목군 선택:</span>
@@ -46,7 +59,7 @@
             </div>
         </div>
 
-        <!-- 특정 기간별 요약 카드 영역 -->
+        <!-- 🚀 요약 카드 & 스마트 날짜 입력 영역 -->
         <div class="bg-white p-6 rounded-2xl border border-blue-100 shadow-md bg-gradient-to-br from-white to-blue-50/30">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4 border-b border-slate-200 pb-4">
                 <div>
@@ -57,11 +70,29 @@
                         선택된 기간 동안 등록된 품목군 <strong id="targetWeekTotal" class="text-blue-600">0건</strong>
                     </p>
                 </div>
+                
                 <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                    <label class="text-xs font-bold text-slate-600 shrink-0">조회 기간:</label>
-                    <input type="date" id="targetStartDate" onchange="loadDashboard()" class="text-sm font-bold text-blue-600 bg-blue-50 border-none rounded px-2 py-1 cursor-pointer focus:ring-0">
-                    <span class="text-slate-400 text-sm">~</span>
-                    <input type="date" id="targetEndDate" onchange="loadDashboard()" class="text-sm font-bold text-blue-600 bg-blue-50 border-none rounded px-2 py-1 cursor-pointer focus:ring-0">
+                    <label class="text-xs font-bold text-slate-600 shrink-0 ml-1">조회 기간:</label>
+                    
+                    <!-- 스마트 입력창 (Start) -->
+                    <div class="smart-date-wrapper">
+                        <input type="text" id="targetStartText" placeholder="YYYYMMDD" maxlength="10" 
+                               class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
+                        <svg class="w-4 h-4 smart-date-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <input type="date" id="targetStartDate" class="smart-date-picker">
+                    </div>
+                    
+                    <span class="text-slate-400 text-sm font-bold px-1">~</span>
+                    
+                    <!-- 스마트 입력창 (End) -->
+                    <div class="smart-date-wrapper">
+                        <input type="text" id="targetEndText" placeholder="YYYYMMDD" maxlength="10" 
+                               class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
+                        <svg class="w-4 h-4 smart-date-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <input type="date" id="targetEndDate" class="smart-date-picker">
+                    </div>
+                    
+                    <button onclick="loadDashboard()" class="ml-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">적용</button>
                 </div>
             </div>
 
@@ -149,19 +180,24 @@
             </div>
         </div>
 
-        <!-- 3개의 차트 영역 -->
+        <!-- 🚀 업그레이드 된 3개의 차트 영역 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3">Top 제조사별 런칭 규모 (Top 8)</h2>
                 <div class="h-64 relative"><canvas id="mfrChart"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <h2 class="text-sm font-black text-slate-800 mb-3">품목명 핵심 키워드 랭킹 (Top 10)</h2>
+                <h2 class="text-sm font-black text-slate-800 mb-3 flex items-center">
+                    품목명 핵심 키워드 랭킹 
+                    <!-- 🚀 툴팁 추가 -->
+                    <span class="tooltip-icon" data-tooltip="DB 내 품목명에서 특수문자를 제거하고, 띄어쓰기 기준으로 핵심 단어를 분리하여 출현 빈도순으로 집계한 결과입니다.">?</span>
+                </h2>
                 <div class="h-64 relative"><canvas id="pnameChart"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <h2 class="text-sm font-black text-slate-800 mb-3">급부상 원재료 사용 랭킹 (Top 10)</h2>
-                <div class="h-64 relative"><canvas id="rawChart"></canvas></div>
+                <h2 class="text-sm font-black text-slate-800 mb-3">월별 신제품 등록 추이</h2>
+                <!-- 🚀 추이 차트 자리로 변경 -->
+                <div class="h-64 relative"><canvas id="trendChart"></canvas></div>
             </div>
         </div>
 
@@ -225,7 +261,7 @@
         
         let mfrChart = null;
         let pnameChart = null;
-        let rawChart = null;
+        let trendChart = null;
 
         let allCompanies = [];
         let allPtypes = [];
@@ -250,6 +286,35 @@
         
         let activeGroup = null;
 
+        // 🚀 스마트 날짜 입력 처리 로직
+        function setupSmartDateInputs() {
+            const setups = [
+                { textId: 'targetStartText', dateId: 'targetStartDate' },
+                { textId: 'targetEndText', dateId: 'targetEndDate' }
+            ];
+
+            setups.forEach(s => {
+                const textEl = document.getElementById(s.textId);
+                const dateEl = document.getElementById(s.dateId);
+
+                // 달력 -> 텍스트 동기화
+                dateEl.addEventListener('change', (e) => {
+                    textEl.value = e.target.value;
+                });
+
+                // 텍스트 자동 하이픈 변환 (숫자만 치면 2026-08-22로)
+                textEl.addEventListener('input', function (e) {
+                    let val = e.target.value.replace(/[^0-9]/g, '');
+                    if (val.length >= 5 && val.length <= 6) val = val.slice(0,4) + '-' + val.slice(4);
+                    else if (val.length >= 7) val = val.slice(0,4) + '-' + val.slice(4,6) + '-' + val.slice(6,8);
+                    e.target.value = val;
+                    
+                    // 완성 시 숨겨진 달력 값도 동기화
+                    if (val.length === 10) dateEl.value = val;
+                });
+            });
+        }
+
         function getWeekRange() {
             const tzoffset = (new Date()).getTimezoneOffset() * 60000;
             const now = new Date(Date.now() - tzoffset);
@@ -266,9 +331,14 @@
         }
 
         async function init() {
+            setupSmartDateInputs();
             const range = getWeekRange();
+            
+            // 초기 날짜 세팅 (달력, 텍스트 둘다)
             document.getElementById('targetStartDate').value = range.start;
+            document.getElementById('targetStartText').value = range.start;
             document.getElementById('targetEndDate').value = range.end;
+            document.getElementById('targetEndText').value = range.end;
             
             renderGroupButtons();
             renderWeekCards();
@@ -349,6 +419,7 @@
         function updateBtnTexts() { document.getElementById('mfrBtnText').textContent = selectedCompanies.size === 0 ? '전체 제조사' : `제조사 (${selectedCompanies.size}개 선택)`; document.getElementById('ptypeBtnText').textContent = selectedPtypes.size === 0 ? '전체 유형' : `품목유형 (${selectedPtypes.size}개 선택)`; }
 
         function getFilterParams() {
+            // 서버 전송 시에는 완성된 텍스트값(targetStartText)을 사용
             return new URLSearchParams({
                 dataType: currentTab,
                 company: selectedCompanies.size === 0 ? 'ALL' : Array.from(selectedCompanies).join(','),
@@ -357,8 +428,8 @@
                 rawmtrl: document.getElementById('rawmtrlInput').value.trim(),
                 dateFrom: document.getElementById('dateFrom').value,
                 dateTo: document.getElementById('dateTo').value,
-                targetStartDate: document.getElementById('targetStartDate').value,
-                targetEndDate: document.getElementById('targetEndDate').value
+                targetStartDate: document.getElementById('targetStartText').value,
+                targetEndDate: document.getElementById('targetEndText').value
             });
         }
 
@@ -389,11 +460,29 @@
                     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
                 });
 
-                if (rawChart) rawChart.destroy();
-                rawChart = new Chart(document.getElementById('rawChart'), { 
-                    type: 'bar', 
-                    data: { labels: (data.raw_chart || []).map(r => r.material), datasets: [{ label: '사용 빈도', data: (data.raw_chart || []).map(r => r.count), backgroundColor: PALETTE, borderRadius: 4 }] }, 
-                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
+                // 🚀 새로운 트렌드 차트 렌더링
+                if (trendChart) trendChart.destroy();
+                trendChart = new Chart(document.getElementById('trendChart'), { 
+                    type: 'line', 
+                    data: { 
+                        labels: (data.trend_chart || []).map(t => t.month), 
+                        datasets: [{ 
+                            label: '신제품 등록 건수', 
+                            data: (data.trend_chart || []).map(t => t.count), 
+                            borderColor: '#3b82f6', 
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                            borderWidth: 2, 
+                            pointRadius: 4, 
+                            fill: true, 
+                            tension: 0.2 
+                        }] 
+                    }, 
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                        plugins: { legend: { display: false } } 
+                    } 
                 });
             } catch (e) {
                 console.error("loadDashboard error:", e);
@@ -440,7 +529,7 @@
                 else if (len >= 5) fontSizeClass = 'text-lg';
                 
                 return `
-                <div onclick="filterByWeekAndType('${document.getElementById('targetStartDate').value}', '${document.getElementById('targetEndDate').value}', '${item.ptype}')" 
+                <div onclick="filterByWeekAndType('${document.getElementById('targetStartText').value}', '${document.getElementById('targetEndText').value}', '${item.ptype}')" 
                      class="week-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer flex flex-col justify-between h-32 group">
                     <div>
                         <p class="text-[11px] font-bold text-slate-400 mb-1 group-hover:text-blue-500 transition">품목유형</p>
@@ -493,7 +582,6 @@
                     <tr class="hover:bg-slate-50">
                         <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap font-medium">${formatDate(r.PRMS_DT)}</td>
                         <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${formatDate(r.CHNG_DT)}</td>
-                        <!-- 🚀 max-w-[120px] 적용: 너비를 날짜칸과 동일하게 제한하고 넘치면 ... 으로 처리 -->
                         <td class="px-4 py-2.5 font-bold text-slate-800 truncate max-w-[120px]" title="${r.BSSH_NM}">${r.BSSH_NM}</td>
                         <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap">${r.PRDLST_DCNM}</td>
                         <td class="px-4 py-2.5 font-semibold text-slate-800 truncate max-w-xs" title="${r.PRDLST_NM}">${r.PRDLST_NM}</td>
@@ -549,7 +637,9 @@
             
             const range = getWeekRange();
             document.getElementById('targetStartDate').value = range.start;
+            document.getElementById('targetStartText').value = range.start;
             document.getElementById('targetEndDate').value = range.end;
+            document.getElementById('targetEndText').value = range.end;
             
             loadDashboard(); loadDetails(1);
         }

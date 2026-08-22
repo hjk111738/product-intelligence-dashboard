@@ -103,7 +103,6 @@ def get_dashboard_data(
             str_start = sanitize_input(targetStartDate.replace("-", ""))
             str_end = sanitize_input(targetEndDate.replace("-", ""))
             
-            # 🚀 제조사 수집 로직(STRING_AGG) 제거 -> 더 빠르고 가벼운 쿼리 적용
             target_query = f"""
                 SELECT PRDLST_DCNM as ptype, COUNT(*) as count
                 FROM '{file_path}'
@@ -116,24 +115,34 @@ def get_dashboard_data(
                 for r in rows:
                     if r['count'] > 0: 
                         target_stats["total"] += r['count']
-                        # 이제 top_mfrs 로직은 완전히 제외됩니다
                         target_stats["items"].append(r)
             except Exception:
                 pass
 
+        # 차트 1: 제조사 랭킹
         mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
         
+        # 차트 2: 🚀 월별 신제품 런칭 추이 (신규 반영)
+        trend_query = f"""
+            SELECT SUBSTRING(PRMS_DT, 1, 6) as ym, COUNT(*) as count 
+            FROM '{file_path}' 
+            WHERE {where_sql} AND LENGTH(PRMS_DT) = 8
+            GROUP BY ym 
+            ORDER BY ym ASC
+        """
+        trend_chart_raw = query_to_dict(cursor, trend_query)
+        # YYYYMM 형식을 YYYY-MM 형태로 변환하여 반환
+        trend_chart = [{"month": f"{r['ym'][:4]}-{r['ym'][4:]}", "count": r['count']} for r in trend_chart_raw if len(r['ym']) == 6]
+
+        # 차트 3: 품목명 랭킹
         pname_chart = []
-        raw_chart = []
         summary_file = get_summary_path(dataType)
-        
         has_specific_filter = (company and company != "ALL") or (ptype and ptype != "ALL") or pname or rawmtrl
         
         if not has_specific_filter and os.path.exists(summary_file):
             with open(summary_file, 'r', encoding='utf-8') as f:
                 summary_data = json.load(f)
                 pname_chart = summary_data.get("pname_chart", [])[:10]
-                raw_chart = summary_data.get("raw_chart", [])[:10]
         else:
             try:
                 pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != '' LIMIT 1000").fetchall()
@@ -143,20 +152,14 @@ def get_dashboard_data(
                         clean_str = clean_text_live(row[0])
                         pname_words.extend([w.strip() for w in clean_str.split() if len(w.strip()) > 1])
                 pname_chart = [{"keyword": k, "count": v} for k, v in Counter(pname_words).most_common(10)]
-
-                raw_rows = cursor.execute(f"SELECT RAWMTRL_NM FROM '{file_path}' WHERE {where_sql} AND RAWMTRL_NM != '' LIMIT 1000").fetchall()
-                raw_materials = []
-                for row in raw_rows:
-                    if row[0]: raw_materials.extend([m.strip() for m in str(row[0]).split(',') if len(m.strip()) > 0])
-                raw_chart = [{"material": k, "count": v} for k, v in Counter(raw_materials).most_common(10)]
             except Exception:
                 pass
 
         return {
             "kpi": kpi, 
             "mfr_chart": mfr_chart, 
+            "trend_chart": trend_chart,
             "pname_chart": pname_chart,
-            "raw_chart": raw_chart,
             "target_weekly_stats": target_stats
         }
     finally:
