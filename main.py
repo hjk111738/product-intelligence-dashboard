@@ -5,7 +5,8 @@ import duckdb
 import os
 import io
 import csv
-import datetime
+from collections import Counter
+import re
 
 app = FastAPI()
 
@@ -93,35 +94,26 @@ def get_meta(dataType: str = "food"):
         cursor.close()
 
 @app.get("/api/dashboard")
-def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pname: str="", rawmtrl: str="", dateFrom: str="", dateTo: str="", targetDate: str=""):
+def get_dashboard_data(
+    dataType: str="food", company: str="", ptype: str="", pname: str="", rawmtrl: str="", 
+    dateFrom: str="", dateTo: str="", targetStartDate: str="", targetEndDate: str=""
+):
     file_path = get_file_path(dataType)
     if not os.path.exists(file_path): return JSONResponse(status_code=404, content={"error": "File not found"})
 
     where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
     cursor = db.cursor()
     try:
+        # 1. 메인 KPI
         kpi_result = query_to_dict(cursor, f"SELECT COUNT(*) as total_items, COUNT(DISTINCT BSSH_NM) as company_count, COUNT(DISTINCT PRDLST_DCNM) as ptype_count FROM '{file_path}' WHERE {where_sql}")
         kpi = kpi_result[0] if kpi_result else {"total_items": 0, "company_count": 0, "ptype_count": 0}
 
-        target_stats = {"label": "", "start_date": "", "end_date": "", "items": [], "total": 0}
+        # 2. 🚀 상단 요약 카드 집계 로직 (기간 지정 방식)
+        target_stats = {"items": [], "total": 0}
         
-        if not targetDate:
-            targetDate = datetime.date.today().strftime("%Y-%m-%d")
-            
-        try:
-            dt = datetime.datetime.strptime(targetDate, "%Y-%m-%d")
-            first_day = dt.replace(day=1)
-            week_num = (dt.day + first_day.weekday() - 1) // 7 + 1
-            
-            week_start = dt - datetime.timedelta(days=dt.weekday())
-            week_end = week_start + datetime.timedelta(days=6)
-            
-            target_stats["label"] = f"{dt.year}년 {dt.month}월 {week_num}주차"
-            target_stats["start_date"] = week_start.strftime("%Y-%m-%d")
-            target_stats["end_date"] = week_end.strftime("%Y-%m-%d")
-            
-            str_start = week_start.strftime("%Y%m%d")
-            str_end = week_end.strftime("%Y%m%d")
+        if targetStartDate and targetEndDate:
+            str_start = sanitize_input(targetStartDate.replace("-", ""))
+            str_end = sanitize_input(targetEndDate.replace("-", ""))
             
             target_set = TARGET_FOOD_PTYPES if dataType == "food" else TARGET_MEAT_PTYPES
             in_clause_items = ", ".join([f"'{p}'" for p in target_set])
@@ -134,35 +126,47 @@ def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pna
                 GROUP BY PRDLST_DCNM
                 ORDER BY count DESC
             """
-            rows = query_to_dict(cursor, target_query)
-            
-            for r in rows:
-                if r['count'] > 0: 
-                    target_stats["total"] += r['count']
-                    mfr_set = list(set([m.strip() for m in r['mfr_list'].split(',') if m.strip()]))
-                    r['top_mfrs'] = ", ".join(mfr_set[:3]) + (" 등" if len(mfr_set) > 3 else "")
-                    target_stats["items"].append(r)
-                
-        except Exception as e:
-            pass
+            try:
+                rows = query_to_dict(cursor, target_query)
+                for r in rows:
+                    if r['count'] > 0: 
+                        target_stats["total"] += r['count']
+                        mfr_set = list(set([m.strip() for m in r['mfr_list'].split(',') if m.strip()]))
+                        r['top_mfrs'] = ", ".join(mfr_set[:3]) + (" 등" if len(mfr_set) > 3 else "")
+                        target_stats["items"].append(r)
+            except Exception as e:
+                pass
 
+        # 3. 제조사 순위 차트
         mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
-        ptype_chart = query_to_dict(cursor, f"SELECT PRDLST_DCNM as ptype, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND PRDLST_DCNM != '' GROUP BY PRDLST_DCNM ORDER BY count DESC LIMIT 6")
         
-        top_ptypes = [p["ptype"] for p in ptype_chart[:5] if p.get("ptype")]
-        periods = [r[0] for r in cursor.execute(f"SELECT DISTINCT SUBSTRING(PRMS_DT, 1, 4) || '-' || SUBSTRING(PRMS_DT, 5, 2) as ym FROM '{file_path}' WHERE {where_sql} AND LENGTH(PRMS_DT)=8 ORDER BY ym ASC").fetchall() if r[0]]
+        # 4. 🚀 신규: 품목명 핵심 키워드 파싱 로직 (띄어쓰기 기준)
+        pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != ''").fetchall()
+        pname_words = []
+        for row in pname_rows:
+            if row[0]:
+                words = str(row[0]).split()
+                pname_words.extend([w.strip() for w in words if len(w.strip()) > 0])
         
-        trend_matrix = {}
-        if top_ptypes and periods:
-            ptype_in = ", ".join([f"'{sanitize_input(p)}'" for p in top_ptypes])
-            rows = cursor.execute(f"SELECT PRDLST_DCNM as ptype, SUBSTRING(PRMS_DT, 1, 4) || '-' || SUBSTRING(PRMS_DT, 5, 2) as ym, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND PRDLST_DCNM IN ({ptype_in}) AND LENGTH(PRMS_DT)=8 GROUP BY PRDLST_DCNM, ym ORDER BY ym ASC").fetchall()
-            for pt, ym, cnt in rows:
-                if pt not in trend_matrix: trend_matrix[pt] = {}
-                trend_matrix[pt][ym] = cnt
+        word_counter = Counter(pname_words)
+        pname_chart = [{"keyword": k, "count": v} for k, v in word_counter.most_common(10)]
+
+        # 5. 🚀 신규: 급부상 원재료 사용 빈도 파싱 로직 (쉼표 기준)
+        raw_rows = cursor.execute(f"SELECT RAWMTRL_NM FROM '{file_path}' WHERE {where_sql} AND RAWMTRL_NM != ''").fetchall()
+        raw_materials = []
+        for row in raw_rows:
+            if row[0]:
+                materials = str(row[0]).split(',')
+                raw_materials.extend([m.strip() for m in materials if len(m.strip()) > 0])
+        
+        raw_counter = Counter(raw_materials)
+        raw_chart = [{"material": k, "count": v} for k, v in raw_counter.most_common(10)]
 
         return {
-            "kpi": kpi, "mfr_chart": mfr_chart, "ptype_chart": ptype_chart,
-            "trend_periods": periods, "trend_matrix": trend_matrix, "top_ptypes": top_ptypes,
+            "kpi": kpi, 
+            "mfr_chart": mfr_chart, 
+            "pname_chart": pname_chart,
+            "raw_chart": raw_chart,
             "target_weekly_stats": target_stats
         }
     finally:
