@@ -13,14 +13,12 @@
         .week-card { transition: all 0.2s ease-in-out; }
         .week-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); border-color: #3b82f6; }
         
-        /* 🚀 툴팁(?) 커스텀 CSS */
         .tooltip-icon { position: relative; cursor: help; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #e2e8f0; color: #64748b; border-radius: 50%; font-size: 11px; font-weight: bold; margin-left: 6px; transition: all 0.2s; }
         .tooltip-icon:hover { background: #3b82f6; color: white; }
         .tooltip-icon::after { content: attr(data-tooltip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); width: 220px; background: #1e293b; color: white; text-align: center; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 500; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; z-index: 50; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); line-height: 1.4; pointer-events: none; }
         .tooltip-icon::before { content: ''; position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%); border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; z-index: 50; pointer-events: none; }
         .tooltip-icon:hover::after, .tooltip-icon:hover::before { opacity: 1; visibility: visible; }
         
-        /* 🚀 스마트 날짜 입력창 CSS */
         .smart-date-wrapper { position: relative; display: inline-flex; align-items: center; }
         .smart-date-input { width: 100px; text-align: center; padding-right: 24px; font-variant-numeric: tabular-nums; }
         .smart-date-picker { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); opacity: 0; width: 20px; height: 20px; cursor: pointer; z-index: 10; }
@@ -40,9 +38,11 @@
                     <p class="text-xs font-bold text-blue-600 mt-1">제작 : 롯데웰푸드 푸드마케팅전략팀</p>
                 </div>
             </div>
+            
+            <!-- 🚀 탭 색상 구분 적용 -->
             <div class="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                <button id="tabFood" onclick="switchTab('food')" class="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-white text-blue-600">🟢 식품(첨가물)</button>
-                <button id="tabMeat" onclick="switchTab('meat')" class="px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:text-slate-900">🔴 축산물</button>
+                <button id="tabFood" onclick="switchTab('food')" class="px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">🟢 식품(첨가물)</button>
+                <button id="tabMeat" onclick="switchTab('meat')" class="px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900">🔴 축산물</button>
             </div>
         </header>
 
@@ -59,7 +59,7 @@
             </div>
         </div>
 
-        <!-- 🚀 요약 카드 & 스마트 날짜 입력 영역 -->
+        <!-- 요약 카드 & 스마트 날짜 입력 영역 -->
         <div class="bg-white p-6 rounded-2xl border border-blue-100 shadow-md bg-gradient-to-br from-white to-blue-50/30">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4 border-b border-slate-200 pb-4">
                 <div>
@@ -74,7 +74,6 @@
                 <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                     <label class="text-xs font-bold text-slate-600 shrink-0 ml-1">조회 기간:</label>
                     
-                    <!-- 스마트 입력창 (Start) -->
                     <div class="smart-date-wrapper">
                         <input type="text" id="targetStartText" placeholder="YYYYMMDD" maxlength="10" 
                                class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
@@ -84,7 +83,6 @@
                     
                     <span class="text-slate-400 text-sm font-bold px-1">~</span>
                     
-                    <!-- 스마트 입력창 (End) -->
                     <div class="smart-date-wrapper">
                         <input type="text" id="targetEndText" placeholder="YYYYMMDD" maxlength="10" 
                                class="smart-date-input text-sm font-bold text-blue-600 bg-blue-50 border-none rounded py-1.5 focus:ring-2 focus:ring-blue-300">
@@ -180,7 +178,7 @@
             </div>
         </div>
 
-        <!-- 🚀 업그레이드 된 3개의 차트 영역 -->
+        <!-- 3개의 차트 영역 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3">Top 제조사별 런칭 규모 (Top 8)</h2>
@@ -189,14 +187,12 @@
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3 flex items-center">
                     품목명 핵심 키워드 랭킹 
-                    <!-- 🚀 툴팁 추가 -->
                     <span class="tooltip-icon" data-tooltip="DB 내 품목명에서 특수문자를 제거하고, 띄어쓰기 기준으로 핵심 단어를 분리하여 출현 빈도순으로 집계한 결과입니다.">?</span>
                 </h2>
                 <div class="h-64 relative"><canvas id="pnameChart"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3">월별 신제품 등록 추이</h2>
-                <!-- 🚀 추이 차트 자리로 변경 -->
                 <div class="h-64 relative"><canvas id="trendChart"></canvas></div>
             </div>
         </div>
@@ -286,7 +282,6 @@
         
         let activeGroup = null;
 
-        // 🚀 스마트 날짜 입력 처리 로직
         function setupSmartDateInputs() {
             const setups = [
                 { textId: 'targetStartText', dateId: 'targetStartDate' },
@@ -297,19 +292,15 @@
                 const textEl = document.getElementById(s.textId);
                 const dateEl = document.getElementById(s.dateId);
 
-                // 달력 -> 텍스트 동기화
                 dateEl.addEventListener('change', (e) => {
                     textEl.value = e.target.value;
                 });
 
-                // 텍스트 자동 하이픈 변환 (숫자만 치면 2026-08-22로)
                 textEl.addEventListener('input', function (e) {
                     let val = e.target.value.replace(/[^0-9]/g, '');
                     if (val.length >= 5 && val.length <= 6) val = val.slice(0,4) + '-' + val.slice(4);
                     else if (val.length >= 7) val = val.slice(0,4) + '-' + val.slice(4,6) + '-' + val.slice(6,8);
                     e.target.value = val;
-                    
-                    // 완성 시 숨겨진 달력 값도 동기화
                     if (val.length === 10) dateEl.value = val;
                 });
             });
@@ -334,12 +325,19 @@
             setupSmartDateInputs();
             const range = getWeekRange();
             
-            // 초기 날짜 세팅 (달력, 텍스트 둘다)
             document.getElementById('targetStartDate').value = range.start;
             document.getElementById('targetStartText').value = range.start;
             document.getElementById('targetEndDate').value = range.end;
             document.getElementById('targetEndText').value = range.end;
             
+            // 🚀 초기 디자인 렌더링을 위해 switchTab 로직을 여기서도 동일하게 설정
+            const foodActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+            const meatActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-red-50 text-red-700 ring-1 ring-red-200";
+            const inactive = "px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900";
+            
+            document.getElementById('tabFood').className = currentTab === 'food' ? foodActive : inactive;
+            document.getElementById('tabMeat').className = currentTab === 'meat' ? meatActive : inactive;
+
             renderGroupButtons();
             renderWeekCards();
             
@@ -348,14 +346,29 @@
             await loadDetails(1);
         }
 
+        // 🚀 탭 선택 시 직관적인 색상 스위칭 (식품=녹색계열, 축산물=적색계열)
         function switchTab(tab) {
             currentTab = tab;
-            document.getElementById('tabFood').className = tab === 'food' ? 'px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-white text-blue-600' : 'px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:text-slate-900';
-            document.getElementById('tabMeat').className = tab === 'meat' ? 'px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-white text-blue-600' : 'px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:text-slate-900';
+            
+            const foodActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+            const meatActive = "px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-red-50 text-red-700 ring-1 ring-red-200";
+            const inactive = "px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:bg-slate-200/50 hover:text-slate-900";
+
+            document.getElementById('tabFood').className = tab === 'food' ? foodActive : inactive;
+            document.getElementById('tabMeat').className = tab === 'meat' ? meatActive : inactive;
             
             selectedCompanies.clear(); selectedPtypes.clear(); 
             activeGroup = null;
-            init();
+            
+            // 탭 변경 시 날짜 텍스트/달력 초기화
+            const range = getWeekRange();
+            document.getElementById('targetStartDate').value = range.start;
+            document.getElementById('targetStartText').value = range.start;
+            document.getElementById('targetEndDate').value = range.end;
+            document.getElementById('targetEndText').value = range.end;
+
+            renderGroupButtons();
+            loadMeta().then(() => { loadDashboard(); loadDetails(1); });
         }
 
         function renderGroupButtons() {
@@ -419,7 +432,6 @@
         function updateBtnTexts() { document.getElementById('mfrBtnText').textContent = selectedCompanies.size === 0 ? '전체 제조사' : `제조사 (${selectedCompanies.size}개 선택)`; document.getElementById('ptypeBtnText').textContent = selectedPtypes.size === 0 ? '전체 유형' : `품목유형 (${selectedPtypes.size}개 선택)`; }
 
         function getFilterParams() {
-            // 서버 전송 시에는 완성된 텍스트값(targetStartText)을 사용
             return new URLSearchParams({
                 dataType: currentTab,
                 company: selectedCompanies.size === 0 ? 'ALL' : Array.from(selectedCompanies).join(','),
@@ -460,7 +472,6 @@
                     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
                 });
 
-                // 🚀 새로운 트렌드 차트 렌더링
                 if (trendChart) trendChart.destroy();
                 trendChart = new Chart(document.getElementById('trendChart'), { 
                     type: 'line', 
