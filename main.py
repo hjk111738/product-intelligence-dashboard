@@ -75,7 +75,7 @@ def get_meta(dataType: str = "food"):
         cursor.close()
 
 @app.get("/api/dashboard")
-def get_dashboard_data(dataType: str = "food", company: str = "", ptype: str = "", pname: str = "", rawmtrl: str = "", dateFrom: str = "", dateTo: str = ""):
+def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pname: str="", rawmtrl: str="", dateFrom: str="", dateTo: str="", targetDate: str=""):
     file_path = get_file_path(dataType)
     if not os.path.exists(file_path): return JSONResponse(status_code=404, content={"error": "File not found"})
 
@@ -85,46 +85,46 @@ def get_dashboard_data(dataType: str = "food", company: str = "", ptype: str = "
         kpi_result = query_to_dict(cursor, f"SELECT COUNT(*) as total_items, COUNT(DISTINCT BSSH_NM) as company_count, COUNT(DISTINCT PRDLST_DCNM) as ptype_count FROM '{file_path}' WHERE {where_sql}")
         kpi = kpi_result[0] if kpi_result else {"total_items": 0, "company_count": 0, "ptype_count": 0}
 
-        # 신규: 달력 기준 주차별 집계 로직
-        weekly_query = f"""
-            SELECT PRMS_DT, PRDLST_DCNM, COUNT(*) as count 
-            FROM '{file_path}' 
-            WHERE {where_sql} AND PRMS_DT IS NOT NULL AND LENGTH(PRMS_DT) = 8 AND PRMS_DT NOT LIKE '0000%'
-            GROUP BY PRMS_DT, PRDLST_DCNM
-        """
-        weekly_rows = query_to_dict(cursor, weekly_query)
-        weekly_dict = {}
-
-        for row in weekly_rows:
-            try:
-                dt = datetime.datetime.strptime(row['PRMS_DT'], "%Y%m%d")
-                first_day = dt.replace(day=1)
-                week_num = (dt.day + first_day.weekday() - 1) // 7 + 1
-                week_label = f"{dt.year}년 {dt.month}월 {week_num}주차"
+        # 🚀 신규: 특정 날짜(targetDate) 기준 주간 집계 로직
+        target_stats = {"label": "", "start_date": "", "end_date": "", "items": [], "total": 0}
+        
+        if not targetDate:
+            # 2026-08-22 (기준 오늘 날짜 세팅)
+            targetDate = "2026-08-22"
+            
+        try:
+            dt = datetime.datetime.strptime(targetDate, "%Y-%m-%d")
+            first_day = dt.replace(day=1)
+            week_num = (dt.day + first_day.weekday() - 1) // 7 + 1
+            
+            week_start = dt - datetime.timedelta(days=dt.weekday())
+            week_end = week_start + datetime.timedelta(days=6)
+            
+            target_stats["label"] = f"{dt.year}년 {dt.month}월 {week_num}주차"
+            target_stats["start_date"] = week_start.strftime("%Y-%m-%d")
+            target_stats["end_date"] = week_end.strftime("%Y-%m-%d")
+            
+            str_start = week_start.strftime("%Y%m%d")
+            str_end = week_end.strftime("%Y%m%d")
+            
+            target_query = f"""
+                SELECT PRDLST_DCNM as ptype, COUNT(*) as count, STRING_AGG(BSSH_NM, ', ') as mfr_list
+                FROM '{file_path}'
+                WHERE PRMS_DT >= '{str_start}' AND PRMS_DT <= '{str_end}' AND PRDLST_DCNM != ''
+                GROUP BY PRDLST_DCNM
+                ORDER BY count DESC
+            """
+            rows = query_to_dict(cursor, target_query)
+            
+            for r in rows:
+                target_stats["total"] += r['count']
+                mfr_set = list(set([m.strip() for m in r['mfr_list'].split(',') if m.strip()]))
+                r['top_mfrs'] = ", ".join(mfr_set[:3]) + (" 등" if len(mfr_set) > 3 else "")
+                target_stats["items"].append(r)
                 
-                week_start = dt - datetime.timedelta(days=dt.weekday())
-                week_end = week_start + datetime.timedelta(days=6)
-                
-                if week_label not in weekly_dict:
-                    weekly_dict[week_label] = {
-                        "label": week_label,
-                        "start_date": week_start.strftime("%Y-%m-%d"),
-                        "end_date": week_end.strftime("%Y-%m-%d"),
-                        "sort_key": week_start.strftime("%Y%m%d"),
-                        "items": {}
-                    }
-                
-                pt_name = row['PRDLST_DCNM']
-                weekly_dict[week_label]["items"][pt_name] = weekly_dict[week_label]["items"].get(pt_name, 0) + row['count']
-            except:
-                pass
-
-        weekly_stats = list(weekly_dict.values())
-        weekly_stats.sort(key=lambda x: x["sort_key"], reverse=True)
-        weekly_stats = weekly_stats[:15] # 최근 15개 주차만 표출
-
-        for ws in weekly_stats:
-            ws["items"] = [{"ptype": k, "count": v} for k, v in sorted(ws["items"].items(), key=lambda item: item[1], reverse=True)]
+        except Exception as e:
+            print("Weekly aggregation error:", e)
+            pass
 
         mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
         ptype_chart = query_to_dict(cursor, f"SELECT PRDLST_DCNM as ptype, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND PRDLST_DCNM != '' GROUP BY PRDLST_DCNM ORDER BY count DESC LIMIT 6")
@@ -143,7 +143,7 @@ def get_dashboard_data(dataType: str = "food", company: str = "", ptype: str = "
         return {
             "kpi": kpi, "mfr_chart": mfr_chart, "ptype_chart": ptype_chart,
             "trend_periods": periods, "trend_matrix": trend_matrix, "top_ptypes": top_ptypes,
-            "weekly_stats": weekly_stats
+            "target_weekly_stats": target_stats
         }
     finally:
         cursor.close()
