@@ -1,1 +1,406 @@
-{"pname_chart": [{"keyword": "닭가슴살", "count": 297}, {"keyword": "그릭요거트", "count": 254}, {"keyword": "떡갈비", "count": 173}, {"keyword": "요거트", "count": 167}, {"keyword": "소시지", "count": 165}, {"keyword": "플레인", "count": 130}, {"keyword": "젤라또", "count": 127}, {"keyword": "스테이크", "count": 116}, {"keyword": "우유", "count": 109}, {"keyword": "함박스테이크", "count": 101}, {"keyword": "딸기", "count": 93}, {"keyword": "돈까스", "count": 87}, {"keyword": "아이스크림", "count": 84}, {"keyword": "저당", "count": 81}, {"keyword": "오리지널", "count": 79}, {"keyword": "한돈", "count": 78}, {"keyword": "탕수육", "count": 74}, {"keyword": "초코", "count": 67}, {"keyword": "치즈", "count": 66}, {"keyword": "블루베리", "count": 65}, {"keyword": "치킨", "count": 65}, {"keyword": "그릴드", "count": 60}, {"keyword": "한입", "count": 57}, {"keyword": "순살치킨", "count": 57}, {"keyword": "등심돈까스", "count": 54}, {"keyword": "케이크", "count": 52}, {"keyword": "비엔나", "count": 51}, {"keyword": "수제", "count": 50}, {"keyword": "바닐라", "count": 50}, {"keyword": "꿔바로우", "count": 50}, {"keyword": "미트볼", "count": 48}, {"keyword": "너비아니", "count": 47}, {"keyword": "한끼통살", "count": 47}, {"keyword": "베이컨", "count": 47}, {"keyword": "후랑크", "count": 47}, {"keyword": "무가당", "count": 46}, {"keyword": "그릭", "count": 43}, {"keyword": "크리스피", "count": 43}, {"keyword": "프리미엄", "count": 42}, {"keyword": "만든", "count": 41}, {"keyword": "한우", "count": 41}, {"keyword": "유기농", "count": 41}, {"keyword": "통등심", "count": 39}, {"keyword": "말차", "count": 39}, {"keyword": "아이스", "count": 36}, {"keyword": "직화", "count": 35}, {"keyword": "통등심돈까스", "count": 35}, {"keyword": "동그랑땡", "count": 35}, {"keyword": "스트로베리", "count": 34}, {"keyword": "큐브", "count": 34}], "raw_chart": [{"material": "복합조미식품", "count": 5094}, {"material": "정제수", "count": 5021}, {"material": "기타가공품", "count": 4175}, {"material": "혼합제제", "count": 3285}, {"material": "정제소금", "count": 3075}, {"material": "돼지고기", "count": 2893}, {"material": "설탕", "count": 2877}, {"material": "소스", "count": 2255}, {"material": "천연향신료", "count": 2220}, {"material": "곡류가공품", "count": 2064}, {"material": "식품첨가물혼합제제", "count": 1895}, {"material": "양파", "count": 1450}, {"material": "닭고기", "count": 1428}, {"material": "두류가공품", "count": 1334}, {"material": "L-글루탐산나트륨", "count": 1280}, {"material": "향료", "count": 1224}, {"material": "마늘", "count": 1186}, {"material": "당류가공품", "count": 1030}, {"material": "물엿", "count": 995}, {"material": "옥수수전분", "count": 969}, {"material": "콩기름(대두유)", "count": 933}, {"material": "백설탕", "count": 931}, {"material": "과.채가공품", "count": 919}, {"material": "전분가공품", "count": 887}, {"material": "대파", "count": 852}, {"material": "혼합분유", "count": 850}, {"material": "원유", "count": 794}, {"material": "유크림", "count": 785}, {"material": "후추가루", "count": 718}, {"material": "식품첨가물", "count": 695}, {"material": "참기름", "count": 668}, {"material": "아질산나트륨", "count": 633}, {"material": "우유", "count": 632}, {"material": "소고기", "count": 613}, {"material": "밀가루", "count": 606}, {"material": "유산균", "count": 572}, {"material": "혼합간장", "count": 540}, {"material": "향신료조제품", "count": 519}, {"material": "포도당", "count": 506}, {"material": "돼지지방", "count": 501}, {"material": "탈지분유", "count": 485}, {"material": "비타민C", "count": 461}, {"material": "아이스크림", "count": 437}, {"material": "닭가슴살", "count": 422}, {"material": "전분", "count": 397}, {"material": "카라기난", "count": 373}, {"material": "분리대두단백", "count": 372}, {"material": "대두단백", "count": 362}, {"material": "폴리인산나트륨", "count": 354}, {"material": "코코아분말", "count": 350}]}
+{
+  "pname_chart": [
+    {
+      "keyword": "닭가슴살",
+      "count": 298
+    },
+    {
+      "keyword": "그릭요거트",
+      "count": 260
+    },
+    {
+      "keyword": "떡갈비",
+      "count": 179
+    },
+    {
+      "keyword": "요거트",
+      "count": 176
+    },
+    {
+      "keyword": "소시지",
+      "count": 176
+    },
+    {
+      "keyword": "플레인",
+      "count": 136
+    },
+    {
+      "keyword": "젤라또",
+      "count": 127
+    },
+    {
+      "keyword": "스테이크",
+      "count": 120
+    },
+    {
+      "keyword": "우유",
+      "count": 115
+    },
+    {
+      "keyword": "함박스테이크",
+      "count": 103
+    },
+    {
+      "keyword": "딸기",
+      "count": 99
+    },
+    {
+      "keyword": "돈까스",
+      "count": 89
+    },
+    {
+      "keyword": "베이스",
+      "count": 88
+    },
+    {
+      "keyword": "아이스크림",
+      "count": 84
+    },
+    {
+      "keyword": "저당",
+      "count": 81
+    },
+    {
+      "keyword": "오리지널",
+      "count": 80
+    },
+    {
+      "keyword": "한돈",
+      "count": 78
+    },
+    {
+      "keyword": "탕수육",
+      "count": 76
+    },
+    {
+      "keyword": "초코",
+      "count": 72
+    },
+    {
+      "keyword": "치즈",
+      "count": 70
+    },
+    {
+      "keyword": "블루베리",
+      "count": 70
+    },
+    {
+      "keyword": "치킨",
+      "count": 66
+    },
+    {
+      "keyword": "냉동",
+      "count": 63
+    },
+    {
+      "keyword": "그릴드",
+      "count": 60
+    },
+    {
+      "keyword": "순살치킨",
+      "count": 60
+    },
+    {
+      "keyword": "등심돈까스",
+      "count": 58
+    },
+    {
+      "keyword": "한입",
+      "count": 57
+    },
+    {
+      "keyword": "바닐라",
+      "count": 56
+    },
+    {
+      "keyword": "케이크",
+      "count": 54
+    },
+    {
+      "keyword": "비엔나",
+      "count": 51
+    },
+    {
+      "keyword": "베이컨",
+      "count": 50
+    },
+    {
+      "keyword": "꿔바로우",
+      "count": 50
+    },
+    {
+      "keyword": "수제",
+      "count": 50
+    },
+    {
+      "keyword": "후랑크",
+      "count": 49
+    },
+    {
+      "keyword": "미트볼",
+      "count": 49
+    },
+    {
+      "keyword": "한끼통살",
+      "count": 47
+    },
+    {
+      "keyword": "너비아니",
+      "count": 47
+    },
+    {
+      "keyword": "무가당",
+      "count": 46
+    },
+    {
+      "keyword": "크리스피",
+      "count": 43
+    },
+    {
+      "keyword": "그릭",
+      "count": 43
+    },
+    {
+      "keyword": "프리미엄",
+      "count": 42
+    },
+    {
+      "keyword": "한우",
+      "count": 41
+    },
+    {
+      "keyword": "유기농",
+      "count": 41
+    },
+    {
+      "keyword": "만든",
+      "count": 41
+    },
+    {
+      "keyword": "말차",
+      "count": 40
+    },
+    {
+      "keyword": "통등심",
+      "count": 39
+    },
+    {
+      "keyword": "스트로베리",
+      "count": 39
+    },
+    {
+      "keyword": "아이스",
+      "count": 36
+    },
+    {
+      "keyword": "통등심돈까스",
+      "count": 36
+    },
+    {
+      "keyword": "동그랑땡",
+      "count": 36
+    }
+  ],
+  "raw_chart": [
+    {
+      "material": "복합조미식품",
+      "count": 5094
+    },
+    {
+      "material": "정제수",
+      "count": 5021
+    },
+    {
+      "material": "기타가공품",
+      "count": 4175
+    },
+    {
+      "material": "혼합제제",
+      "count": 3285
+    },
+    {
+      "material": "정제소금",
+      "count": 3075
+    },
+    {
+      "material": "돼지고기",
+      "count": 2893
+    },
+    {
+      "material": "설탕",
+      "count": 2877
+    },
+    {
+      "material": "소스",
+      "count": 2255
+    },
+    {
+      "material": "천연향신료",
+      "count": 2220
+    },
+    {
+      "material": "곡류가공품",
+      "count": 2064
+    },
+    {
+      "material": "식품첨가물혼합제제",
+      "count": 1895
+    },
+    {
+      "material": "양파",
+      "count": 1450
+    },
+    {
+      "material": "닭고기",
+      "count": 1428
+    },
+    {
+      "material": "두류가공품",
+      "count": 1334
+    },
+    {
+      "material": "L-글루탐산나트륨",
+      "count": 1280
+    },
+    {
+      "material": "향료",
+      "count": 1224
+    },
+    {
+      "material": "마늘",
+      "count": 1186
+    },
+    {
+      "material": "당류가공품",
+      "count": 1030
+    },
+    {
+      "material": "물엿",
+      "count": 995
+    },
+    {
+      "material": "옥수수전분",
+      "count": 969
+    },
+    {
+      "material": "콩기름(대두유)",
+      "count": 933
+    },
+    {
+      "material": "백설탕",
+      "count": 931
+    },
+    {
+      "material": "과.채가공품",
+      "count": 919
+    },
+    {
+      "material": "전분가공품",
+      "count": 887
+    },
+    {
+      "material": "대파",
+      "count": 852
+    },
+    {
+      "material": "혼합분유",
+      "count": 850
+    },
+    {
+      "material": "원유",
+      "count": 794
+    },
+    {
+      "material": "유크림",
+      "count": 785
+    },
+    {
+      "material": "후추가루",
+      "count": 718
+    },
+    {
+      "material": "식품첨가물",
+      "count": 695
+    },
+    {
+      "material": "참기름",
+      "count": 668
+    },
+    {
+      "material": "아질산나트륨",
+      "count": 633
+    },
+    {
+      "material": "우유",
+      "count": 632
+    },
+    {
+      "material": "소고기",
+      "count": 613
+    },
+    {
+      "material": "밀가루",
+      "count": 606
+    },
+    {
+      "material": "유산균",
+      "count": 572
+    },
+    {
+      "material": "혼합간장",
+      "count": 540
+    },
+    {
+      "material": "향신료조제품",
+      "count": 519
+    },
+    {
+      "material": "포도당",
+      "count": 506
+    },
+    {
+      "material": "돼지지방",
+      "count": 501
+    },
+    {
+      "material": "탈지분유",
+      "count": 485
+    },
+    {
+      "material": "비타민C",
+      "count": 461
+    },
+    {
+      "material": "아이스크림",
+      "count": 437
+    },
+    {
+      "material": "닭가슴살",
+      "count": 422
+    },
+    {
+      "material": "전분",
+      "count": 397
+    },
+    {
+      "material": "카라기난",
+      "count": 373
+    },
+    {
+      "material": "분리대두단백",
+      "count": 372
+    },
+    {
+      "material": "대두단백",
+      "count": 362
+    },
+    {
+      "material": "폴리인산나트륨",
+      "count": 354
+    },
+    {
+      "material": "코코아분말",
+      "count": 350
+    }
+  ]
+}

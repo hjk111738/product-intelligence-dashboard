@@ -24,7 +24,6 @@
                 <div>
                     <h1 class="text-2xl font-black text-slate-900 tracking-tight">신제품 인텔리전스 대시보드</h1>
                     <p class="text-xs font-semibold text-slate-400">공공데이터 품목제조보고서 기반 경쟁사 런칭 모니터링</p>
-                    <!-- 제작자 표기 -->
                     <p class="text-xs font-bold text-blue-600 mt-1">제작 : 롯데웰푸드 푸드마케팅전략팀</p>
                 </div>
             </div>
@@ -34,14 +33,12 @@
             </div>
         </header>
 
-        <!-- 🚀 품목군 선택 퀵 필터 버튼 영역 (단일 선택 및 선택해제) -->
+        <!-- 품목군 선택 퀵 필터 버튼 영역 -->
         <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4">
             <div class="text-sm font-black text-slate-800 flex items-center gap-1.5 shrink-0">
                 <span>🎯 품목군 선택:</span>
             </div>
-            <div id="groupFilterContainer" class="flex flex-wrap items-center gap-2 w-full">
-                <!-- 자바스크립트로 버튼 렌더링됨 -->
-            </div>
+            <div id="groupFilterContainer" class="flex flex-wrap items-center gap-2 w-full"></div>
             <div class="shrink-0 pl-2 border-l border-slate-200 ml-auto">
                 <button onclick="clearGroupSelection()" class="px-3 py-1.5 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg text-xs font-bold transition">
                     ❌ 선택 해제
@@ -49,7 +46,7 @@
             </div>
         </div>
 
-        <!-- 특정 기간별 큼직한 요약 카드 영역 -->
+        <!-- 특정 기간별 요약 카드 영역 -->
         <div class="bg-white p-6 rounded-2xl border border-blue-100 shadow-md bg-gradient-to-br from-white to-blue-50/30">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4 border-b border-slate-200 pb-4">
                 <div>
@@ -60,7 +57,6 @@
                         선택된 기간 동안 등록된 품목군 <strong id="targetWeekTotal" class="text-blue-600">0건</strong>
                     </p>
                 </div>
-                <!-- 🚀 기간 선택 UI -->
                 <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                     <label class="text-xs font-bold text-slate-600 shrink-0">조회 기간:</label>
                     <input type="date" id="targetStartDate" onchange="loadDashboard()" class="text-sm font-bold text-blue-600 bg-blue-50 border-none rounded px-2 py-1 cursor-pointer focus:ring-0">
@@ -141,19 +137,19 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <p class="text-xs font-bold text-slate-400 uppercase">전체 기간 누적 품목 수</p>
-                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiItems">-</p>
+                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiItems">0</p>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <p class="text-xs font-bold text-slate-400 uppercase">출시 제조사 수</p>
-                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiCompanies">-</p>
+                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiCompanies">0</p>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <p class="text-xs font-bold text-slate-400 uppercase">분석 카테고리 수</p>
-                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiPtypes">-</p>
+                <p class="text-3xl font-black text-slate-800 mt-1" id="kpiPtypes">0</p>
             </div>
         </div>
 
-        <!-- 🚀 3개의 차트 영역 (새로운 차트 반영) -->
+        <!-- 3개의 차트 영역 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <h2 class="text-sm font-black text-slate-800 mb-3">Top 제조사별 런칭 규모 (Top 8)</h2>
@@ -197,7 +193,6 @@
             <div id="pagination" class="flex justify-center items-center gap-2 pt-2"></div>
         </div>
         
-        <!-- 하단 저작권 푸터 영역 -->
         <footer class="text-center text-xs font-semibold text-slate-400 mt-8 pb-4">
             &copy; 2026 Lotte Wellfood Food Marketing Strategy Team. All rights reserved.
         </footer>
@@ -239,7 +234,8 @@
 
         let globalWeekStats = null;
 
-        const PALETTE = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B', '#F97316', '#ef4444', '#14b8a6'];
+        // 🚀 다채로운 색상 배열 적용
+        const PALETTE = ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#10B981', '#34D399', '#6EE7B7', '#F59E0B', '#FBBF24', '#FCD34D'];
 
         const FOOD_GROUPS = {
             "🍪 스낵 & 디저트": ["과자", "캔디류", "초콜릿가공품", "추잉껌", "빵류", "초콜릿", "밀크초콜릿", "준초콜릿", "빙과", "당류가공품", "땅콩 또는 견과류가공품"],
@@ -253,15 +249,13 @@
             "🥩 육가공 완제품": ["베이컨류", "분쇄가공육제품", "소시지", "프레스햄"]
         };
         
-        // 🚀 단일 선택용 변수
         let activeGroup = null;
 
-        // 월요일~일요일 주간 범위 계산 함수
         function getWeekRange() {
             const tzoffset = (new Date()).getTimezoneOffset() * 60000;
             const now = new Date(Date.now() - tzoffset);
             const day = now.getDay();
-            const diff = now.getDate() - day + (day == 0 ? -6:1); // 월요일 계산
+            const diff = now.getDate() - day + (day == 0 ? -6:1);
             
             const start = new Date(now.setDate(diff));
             const end = new Date(now.setDate(start.getDate() + 6));
@@ -277,8 +271,10 @@
             document.getElementById('targetStartDate').value = range.start;
             document.getElementById('targetEndDate').value = range.end;
             
-            await loadMeta();
             renderGroupButtons();
+            renderWeekCards();
+            
+            await loadMeta();
             await loadDashboard();
             await loadDetails(1);
         }
@@ -289,11 +285,10 @@
             document.getElementById('tabMeat').className = tab === 'meat' ? 'px-5 py-2 rounded-lg text-sm font-bold transition shadow-sm bg-white text-blue-600' : 'px-5 py-2 rounded-lg text-sm font-bold transition text-slate-500 hover:text-slate-900';
             
             selectedCompanies.clear(); selectedPtypes.clear(); 
-            activeGroup = null; // 탭 변경 시 그룹 초기화
+            activeGroup = null;
             init();
         }
 
-        // 🚀 라디오 버튼 형태로 렌더링
         function renderGroupButtons() {
             const container = document.getElementById('groupFilterContainer');
             const groups = currentTab === 'food' ? FOOD_GROUPS : MEAT_GROUPS;
@@ -308,12 +303,11 @@
             container.innerHTML = html;
         }
 
-        // 🚀 단일 선택 토글 & 해제 로직
         function toggleGroup(groupName) {
             if (activeGroup === groupName) {
-                activeGroup = null; // 같은거 누르면 해제
+                activeGroup = null;
             } else {
-                activeGroup = groupName; // 다른거 누르면 변경
+                activeGroup = groupName;
             }
             renderGroupButtons();
             renderWeekCards(); 
@@ -326,14 +320,14 @@
         }
 
         async function loadMeta() {
-            const res = await fetch(`/api/meta?dataType=${currentTab}`);
-            const data = await res.json();
-            allCompanies = data.companies || []; allPtypes = data.ptypes || [];
-            renderCheckboxList('mfr', allCompanies); renderCheckboxList('ptype', allPtypes);
-            updateBtnTexts();
-            if (data.min_date !== "-" && data.max_date !== "-") {
-                document.getElementById('dateFrom').value = data.min_date;
-                document.getElementById('dateTo').value = data.max_date;
+            try {
+                const res = await fetch(`/api/meta?dataType=${currentTab}`);
+                const data = await res.json();
+                allCompanies = data.companies || []; allPtypes = data.ptypes || [];
+                renderCheckboxList('mfr', allCompanies); renderCheckboxList('ptype', allPtypes);
+                updateBtnTexts();
+            } catch (e) {
+                console.error("loadMeta error:", e);
             }
         }
 
@@ -370,43 +364,44 @@
         }
 
         async function loadDashboard() {
-            const params = getFilterParams();
-            const res = await fetch(`/api/dashboard?${params}`);
-            const data = await res.json();
+            try {
+                const params = getFilterParams();
+                const res = await fetch(`/api/dashboard?${params}`);
+                const data = await res.json();
 
-            document.getElementById('kpiItems').textContent = Number(data.kpi.total_items).toLocaleString() + ' 개';
-            document.getElementById('kpiCompanies').textContent = Number(data.kpi.company_count).toLocaleString() + ' 개사';
-            document.getElementById('kpiPtypes').textContent = Number(data.kpi.ptype_count).toLocaleString() + ' 개';
+                document.getElementById('kpiItems').textContent = Number(data.kpi.total_items || 0).toLocaleString() + ' 개';
+                document.getElementById('kpiCompanies').textContent = Number(data.kpi.company_count || 0).toLocaleString() + ' 개사';
+                document.getElementById('kpiPtypes').textContent = Number(data.kpi.ptype_count || 0).toLocaleString() + ' 개';
 
-            globalWeekStats = data.target_weekly_stats;
-            renderWeekCards();
+                globalWeekStats = data.target_weekly_stats;
+                renderWeekCards();
 
-            // 1. 제조사 차트
-            if (mfrChart) mfrChart.destroy();
-            mfrChart = new Chart(document.getElementById('mfrChart'), { 
-                type: 'bar', 
-                data: { labels: data.mfr_chart.map(m => m.company), datasets: [{ label: '신제품 수', data: data.mfr_chart.map(m => m.count), backgroundColor: '#1E293B', borderRadius: 4 }] }, 
-                options: { responsive: true, maintainAspectRatio: false } 
-            });
-            
-            // 2. 🚀 품목명 키워드 가로막대 차트
-            if (pnameChart) pnameChart.destroy();
-            pnameChart = new Chart(document.getElementById('pnameChart'), { 
-                type: 'bar', 
-                data: { labels: data.pname_chart.map(p => p.keyword), datasets: [{ label: '등장 빈도', data: data.pname_chart.map(p => p.count), backgroundColor: '#3b82f6', borderRadius: 4 }] }, 
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
-            });
+                // 🚀 차트에 다채로운 팔레트 색상 적용
+                if (mfrChart) mfrChart.destroy();
+                mfrChart = new Chart(document.getElementById('mfrChart'), { 
+                    type: 'bar', 
+                    data: { labels: (data.mfr_chart || []).map(m => m.company), datasets: [{ label: '신제품 수', data: (data.mfr_chart || []).map(m => m.count), backgroundColor: PALETTE, borderRadius: 4 }] }, 
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
+                });
+                
+                if (pnameChart) pnameChart.destroy();
+                pnameChart = new Chart(document.getElementById('pnameChart'), { 
+                    type: 'bar', 
+                    data: { labels: (data.pname_chart || []).map(p => p.keyword), datasets: [{ label: '등장 빈도', data: (data.pname_chart || []).map(p => p.count), backgroundColor: PALETTE, borderRadius: 4 }] }, 
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
+                });
 
-            // 3. 🚀 원재료명 빈도 가로막대 차트
-            if (rawChart) rawChart.destroy();
-            rawChart = new Chart(document.getElementById('rawChart'), { 
-                type: 'bar', 
-                data: { labels: data.raw_chart.map(r => r.material), datasets: [{ label: '사용 빈도', data: data.raw_chart.map(r => r.count), backgroundColor: '#10b981', borderRadius: 4 }] }, 
-                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
-            });
+                if (rawChart) rawChart.destroy();
+                rawChart = new Chart(document.getElementById('rawChart'), { 
+                    type: 'bar', 
+                    data: { labels: (data.raw_chart || []).map(r => r.material), datasets: [{ label: '사용 빈도', data: (data.raw_chart || []).map(r => r.count), backgroundColor: PALETTE, borderRadius: 4 }] }, 
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } 
+                });
+            } catch (e) {
+                console.error("loadDashboard error:", e);
+            }
         }
 
-        // 🚀 미선택 시 안내문구 표출 & 선택 시 해당 카드 렌더링
         function renderWeekCards() {
             const gridContainer = document.getElementById('targetWeekGrid');
             
@@ -464,7 +459,7 @@
             selectedPtypes.clear();
             if (ptype) selectedPtypes.add(ptype);
             
-            activeGroup = null; // 하단으로 넘어가면 상단 그룹 선택은 해제
+            activeGroup = null;
             renderGroupButtons();
             updateBtnTexts();
             renderCheckboxList('ptype', allPtypes);
@@ -478,34 +473,38 @@
             const params = getFilterParams();
             params.append('page', page); params.append('sortCol', sortCol); params.append('sortAsc', sortAsc);
 
-            const res = await fetch(`/api/details?${params}`);
-            const result = await res.json();
-            document.getElementById('totalCountText').textContent = `${Number(result.TotalCount).toLocaleString()}건`;
+            try {
+                const res = await fetch(`/api/details?${params}`);
+                const result = await res.json();
+                document.getElementById('totalCountText').textContent = `${Number(result.TotalCount || 0).toLocaleString()}건`;
 
-            const tbody = document.getElementById('tableBody');
-            if (!result.Data || result.Data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-slate-400">조건에 일치하는 품목이 없습니다.</td></tr>';
-                document.getElementById('pagination').innerHTML = '';
-                return;
+                const tbody = document.getElementById('tableBody');
+                if (!result.Data || result.Data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-slate-400">조건에 일치하는 품목이 없습니다.</td></tr>';
+                    document.getElementById('pagination').innerHTML = '';
+                    return;
+                }
+
+                tbody.innerHTML = result.Data.map(r => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap font-medium">${formatDate(r.PRMS_DT)}</td>
+                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${formatDate(r.CHNG_DT)}</td>
+                        <td class="px-4 py-2.5 font-bold text-slate-800 whitespace-nowrap">${r.BSSH_NM}</td>
+                        <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap">${r.PRDLST_DCNM}</td>
+                        <td class="px-4 py-2.5 font-semibold text-slate-800 truncate max-w-xs" title="${r.PRDLST_NM}">${r.PRDLST_NM}</td>
+                        <td class="px-4 py-2.5 whitespace-nowrap">
+                            <button onclick="openModal('${r.PRDLST_REPORT_NO}', '${encodeURIComponent(r.PRDLST_NM || '')}', '${encodeURIComponent(r.RAWMTRL_NM || '')}')" 
+                                    class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded transition hover:bg-blue-100">
+                                ${r.PRDLST_REPORT_NO}
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                renderPagination(result.TotalCount);
+            } catch (e) {
+                console.error("loadDetails error:", e);
             }
-
-            tbody.innerHTML = result.Data.map(r => `
-                <tr class="hover:bg-slate-50">
-                    <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap font-medium">${formatDate(r.PRMS_DT)}</td>
-                    <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${formatDate(r.CHNG_DT)}</td>
-                    <td class="px-4 py-2.5 font-bold text-slate-800 whitespace-nowrap">${r.BSSH_NM}</td>
-                    <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap">${r.PRDLST_DCNM}</td>
-                    <td class="px-4 py-2.5 font-semibold text-slate-800 truncate max-w-xs" title="${r.PRDLST_NM}">${r.PRDLST_NM}</td>
-                    <td class="px-4 py-2.5 whitespace-nowrap">
-                        <button onclick="openModal('${r.PRDLST_REPORT_NO}', '${encodeURIComponent(r.PRDLST_NM || '')}', '${encodeURIComponent(r.RAWMTRL_NM || '')}')" 
-                                class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold text-xs bg-blue-50 px-2 py-1 rounded transition hover:bg-blue-100">
-                            ${r.PRDLST_REPORT_NO}
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-            renderPagination(result.TotalCount);
         }
 
         function openModal(reportNo, encodedName, encodedRaw) {
@@ -547,7 +546,7 @@
             document.getElementById('targetStartDate').value = range.start;
             document.getElementById('targetEndDate').value = range.end;
             
-            loadMeta().then(() => { loadDashboard(); loadDetails(1); });
+            loadDashboard(); loadDetails(1);
         }
         function downloadCSV() {
             const params = getFilterParams(); params.append('sortCol', sortCol); params.append('sortAsc', sortAsc);

@@ -6,7 +6,8 @@ import os
 import io
 import csv
 import json
-import datetime
+import re
+from collections import Counter
 
 app = FastAPI()
 
@@ -56,6 +57,11 @@ def build_where_clause(company: str, ptype: str, pname: str, rawmtrl: str, dateF
     if dateTo: clauses.append(f"PRMS_DT <= '{sanitize_input(dateTo.replace("-", ""))}'")
     return " AND ".join(clauses)
 
+def clean_text_live(text):
+    """실시간 검색 파싱용 특수문자 제거기"""
+    if not text: return ""
+    return re.sub(r'[^\w\s]', ' ', str(text))
+
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def serve_dashboard():
     html_path = os.path.join(BASE_DIR, "index.html")
@@ -98,7 +104,6 @@ def get_dashboard_data(
             str_start = sanitize_input(targetStartDate.replace("-", ""))
             str_end = sanitize_input(targetEndDate.replace("-", ""))
             
-            # 🚀 최적화: IN ('과자'...) 하드코딩 필터 제거. convert.py가 이미 걸러둔 데이터임.
             target_query = f"""
                 SELECT PRDLST_DCNM as ptype, COUNT(*) as count, STRING_AGG(BSSH_NM, ', ') as mfr_list
                 FROM '{file_path}'
@@ -114,38 +119,41 @@ def get_dashboard_data(
                         mfr_set = list(set([m.strip() for m in r['mfr_list'].split(',') if m.strip()]))
                         r['top_mfrs'] = ", ".join(mfr_set[:3]) + (" 등" if len(mfr_set) > 3 else "")
                         target_stats["items"].append(r)
-            except Exception as e:
+            except Exception:
                 pass
 
         mfr_chart = query_to_dict(cursor, f"SELECT BSSH_NM as company, COUNT(*) as count FROM '{file_path}' WHERE {where_sql} AND BSSH_NM != '' GROUP BY BSSH_NM ORDER BY count DESC LIMIT 8")
         
-        # 🚀 최적화: 무거운 파싱(split, Counter) 대신 convert.py가 만들어둔 JSON 읽기 (0.01초 소요)
+        # 🚀 캐시 파일 우선 로드 로직
         pname_chart = []
         raw_chart = []
         summary_file = get_summary_path(dataType)
         
-        # 단, 전체 검색일때만 JSON 요약본을 보여주고, 특정 조건 검색 시(동적 필터)에는 
-        # 실시간 쿼리를 제한적(LIMIT 1000)으로 가볍게 수행합니다.
-        is_default_search = (where_sql == "1=1") 
+        has_specific_filter = (company and company != "ALL") or (ptype and ptype != "ALL") or pname or rawmtrl
         
-        if is_default_search and os.path.exists(summary_file):
+        if not has_specific_filter and os.path.exists(summary_file):
             with open(summary_file, 'r', encoding='utf-8') as f:
                 summary_data = json.load(f)
                 pname_chart = summary_data.get("pname_chart", [])[:10]
                 raw_chart = summary_data.get("raw_chart", [])[:10]
         else:
-            # 검색 조건이 들어온 경우 (빠른 집계를 위해 최신 2000건만 파싱)
-            pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != '' LIMIT 2000").fetchall()
-            pname_words = []
-            for row in pname_rows:
-                if row[0]: pname_words.extend([w.strip() for w in str(row[0]).split() if len(w.strip()) > 1])
-            pname_chart = [{"keyword": k, "count": v} for k, v in Counter(pname_words).most_common(10)]
+            try:
+                # 동적 필터 적용 시 텍스트 파싱 (최적화 처리)
+                pname_rows = cursor.execute(f"SELECT PRDLST_NM FROM '{file_path}' WHERE {where_sql} AND PRDLST_NM != '' LIMIT 1000").fetchall()
+                pname_words = []
+                for row in pname_rows:
+                    if row[0]: 
+                        clean_str = clean_text_live(row[0])
+                        pname_words.extend([w.strip() for w in clean_str.split() if len(w.strip()) > 1])
+                pname_chart = [{"keyword": k, "count": v} for k, v in Counter(pname_words).most_common(10)]
 
-            raw_rows = cursor.execute(f"SELECT RAWMTRL_NM FROM '{file_path}' WHERE {where_sql} AND RAWMTRL_NM != '' LIMIT 2000").fetchall()
-            raw_materials = []
-            for row in raw_rows:
-                if row[0]: raw_materials.extend([m.strip() for m in str(row[0]).split(',') if len(m.strip()) > 0])
-            raw_chart = [{"material": k, "count": v} for k, v in Counter(raw_materials).most_common(10)]
+                raw_rows = cursor.execute(f"SELECT RAWMTRL_NM FROM '{file_path}' WHERE {where_sql} AND RAWMTRL_NM != '' LIMIT 1000").fetchall()
+                raw_materials = []
+                for row in raw_rows:
+                    if row[0]: raw_materials.extend([m.strip() for m in str(row[0]).split(',') if len(m.strip()) > 0])
+                raw_chart = [{"material": k, "count": v} for k, v in Counter(raw_materials).most_common(10)]
+            except Exception:
+                pass
 
         return {
             "kpi": kpi, 
