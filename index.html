@@ -434,9 +434,8 @@
             gridContainer.innerHTML = filteredItems.map(item => {
                 totalFilteredCount += item.count;
                 
-                // 🚀 자릿수에 따른 다이내믹 폰트 리사이징 로직 적용
                 const len = String(item.count).length;
-                let fontSizeClass = 'text-2xl'; // 기본 (3자리 이하)
+                let fontSizeClass = 'text-2xl'; 
                 if (len === 4) fontSizeClass = 'text-xl';
                 else if (len >= 5) fontSizeClass = 'text-lg';
                 
@@ -447,7 +446,6 @@
                         <p class="text-[11px] font-bold text-slate-400 mb-1 group-hover:text-blue-500 transition">품목유형</p>
                         <h3 class="text-base font-black text-slate-800 leading-tight group-hover:text-blue-700 truncate" title="${item.ptype}">${item.ptype}</h3>
                     </div>
-                    <!-- 하단 여백 및 텍스트 자동 축소(엑셀 셀맞춤 방식) 적용, whitespace-nowrap으로 줄바꿈 원천차단 -->
                     <div class="flex justify-end items-end mt-2 whitespace-nowrap overflow-hidden">
                         <span class="${fontSizeClass} font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg tracking-tight inline-flex items-baseline">
                             ${Number(item.count).toLocaleString()}
@@ -457,24 +455,27 @@
                 </div>
             `}).join('');
 
-            // 🚀 상단 총 건수에도 1,000 단위 콤마 추가
             document.getElementById('targetWeekTotal').textContent = `${Number(totalFilteredCount).toLocaleString()}건`;
         }
 
+        // 🚀 카드 클릭 시 호출되는 함수 (자동 스크롤 방지 및 선택 유지 적용)
         function filterByWeekAndType(startDate, endDate, ptype) {
+            // 하단 통합 필터의 날짜 업데이트
             document.getElementById('dateFrom').value = startDate;
             document.getElementById('dateTo').value = endDate;
             
+            // 하단 품목유형 필터 선택
             selectedPtypes.clear();
             if (ptype) selectedPtypes.add(ptype);
             
-            activeGroup = null;
+            // 💡 activeGroup = null; <-- 이 코드를 삭제하여 상단 그룹 열림 상태를 유지합니다.
+            
             renderGroupButtons();
             updateBtnTexts();
             renderCheckboxList('ptype', allPtypes);
             
+            // 데이터 갱신 (스크롤 이동 로직 제거)
             applyFilters();
-            document.getElementById('tableSection').scrollIntoView({ behavior: 'smooth' });
         }
 
         async function loadDetails(page = 1) {
