@@ -23,6 +23,24 @@ db = duckdb.connect()
 db.execute("SET memory_limit = '256MB';")
 db.execute("SET threads = 1;")
 
+# 🟢 식품 타겟 품목 (B2C 완제품 33개)
+TARGET_FOOD_PTYPES = {
+    "과자", "캔디류", "초콜릿가공품", "추잉껌", "빵류", "초콜릿", "밀크초콜릿", "준초콜릿", 
+    "빙과", "당류가공품", "땅콩 또는 견과류가공품", 
+    "만두", "어육소시지", "식육함유가공품", "즉석조리식품", "신선편의식품", "소스", 
+    "마요네즈", "토마토케첩", "복합조미식품", 
+    "고형차", "커피", "과.채주스", "혼합음료", "유산균음료", "액상차", "과.채음료", 
+    "기타 영.유아식", "영아용 조제식", "성장기용 조제식", "임산.수유부용 식품", 
+    "기타가공품", "두류가공품"
+}
+
+# 🔴 축산물 타겟 품목 (B2C 완제품 15개)
+TARGET_MEAT_PTYPES = {
+    "비유지방아이스크림", "샤베트", "아이스밀크", "아이스크림", "가공유", "농후발효유", 
+    "발효유", "영아용 조제유", "우유", "유당분해우유", "유산균첨가우유", 
+    "베이컨류", "분쇄가공육제품", "소시지", "프레스햄"
+}
+
 def get_file_path(data_type: str):
     return os.path.join(BASE_DIR, f"data_{data_type}.parquet")
 
@@ -85,12 +103,11 @@ def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pna
         kpi_result = query_to_dict(cursor, f"SELECT COUNT(*) as total_items, COUNT(DISTINCT BSSH_NM) as company_count, COUNT(DISTINCT PRDLST_DCNM) as ptype_count FROM '{file_path}' WHERE {where_sql}")
         kpi = kpi_result[0] if kpi_result else {"total_items": 0, "company_count": 0, "ptype_count": 0}
 
-        # 🚀 신규: 특정 날짜(targetDate) 기준 주간 집계 로직
+        # 🚀 타겟 요약 카드 집계 로직
         target_stats = {"label": "", "start_date": "", "end_date": "", "items": [], "total": 0}
         
         if not targetDate:
-            # 2026-08-22 (기준 오늘 날짜 세팅)
-            targetDate = "2026-08-22"
+            targetDate = datetime.date.today().strftime("%Y-%m-%d")
             
         try:
             dt = datetime.datetime.strptime(targetDate, "%Y-%m-%d")
@@ -107,20 +124,26 @@ def get_dashboard_data(dataType: str="food", company: str="", ptype: str="", pna
             str_start = week_start.strftime("%Y%m%d")
             str_end = week_end.strftime("%Y%m%d")
             
+            # 💡 집중 모니터링 품목유형만 필터링
+            target_set = TARGET_FOOD_PTYPES if dataType == "food" else TARGET_MEAT_PTYPES
+            in_clause_items = ", ".join([f"'{p}'" for p in target_set])
+            
             target_query = f"""
                 SELECT PRDLST_DCNM as ptype, COUNT(*) as count, STRING_AGG(BSSH_NM, ', ') as mfr_list
                 FROM '{file_path}'
-                WHERE PRMS_DT >= '{str_start}' AND PRMS_DT <= '{str_end}' AND PRDLST_DCNM != ''
+                WHERE PRMS_DT >= '{str_start}' AND PRMS_DT <= '{str_end}' 
+                  AND PRDLST_DCNM IN ({in_clause_items})
                 GROUP BY PRDLST_DCNM
                 ORDER BY count DESC
             """
             rows = query_to_dict(cursor, target_query)
             
             for r in rows:
-                target_stats["total"] += r['count']
-                mfr_set = list(set([m.strip() for m in r['mfr_list'].split(',') if m.strip()]))
-                r['top_mfrs'] = ", ".join(mfr_set[:3]) + (" 등" if len(mfr_set) > 3 else "")
-                target_stats["items"].append(r)
+                if r['count'] > 0: 
+                    target_stats["total"] += r['count']
+                    mfr_set = list(set([m.strip() for m in r['mfr_list'].split(',') if m.strip()]))
+                    r['top_mfrs'] = ", ".join(mfr_set[:3]) + (" 등" if len(mfr_set) > 3 else "")
+                    target_stats["items"].append(r)
                 
         except Exception as e:
             print("Weekly aggregation error:", e)
