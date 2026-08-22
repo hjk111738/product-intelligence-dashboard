@@ -458,23 +458,17 @@
             document.getElementById('targetWeekTotal').textContent = `${Number(totalFilteredCount).toLocaleString()}건`;
         }
 
-        // 🚀 카드 클릭 시 호출되는 함수 (자동 스크롤 방지 및 선택 유지 적용)
         function filterByWeekAndType(startDate, endDate, ptype) {
-            // 하단 통합 필터의 날짜 업데이트
             document.getElementById('dateFrom').value = startDate;
             document.getElementById('dateTo').value = endDate;
             
-            // 하단 품목유형 필터 선택
             selectedPtypes.clear();
             if (ptype) selectedPtypes.add(ptype);
-            
-            // 💡 activeGroup = null; <-- 이 코드를 삭제하여 상단 그룹 열림 상태를 유지합니다.
             
             renderGroupButtons();
             updateBtnTexts();
             renderCheckboxList('ptype', allPtypes);
             
-            // 데이터 갱신 (스크롤 이동 로직 제거)
             applyFilters();
         }
 
@@ -499,7 +493,8 @@
                     <tr class="hover:bg-slate-50">
                         <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap font-medium">${formatDate(r.PRMS_DT)}</td>
                         <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">${formatDate(r.CHNG_DT)}</td>
-                        <td class="px-4 py-2.5 font-bold text-slate-800 whitespace-nowrap">${r.BSSH_NM}</td>
+                        <!-- 🚀 max-w-[120px] 적용: 너비를 날짜칸과 동일하게 제한하고 넘치면 ... 으로 처리 -->
+                        <td class="px-4 py-2.5 font-bold text-slate-800 truncate max-w-[120px]" title="${r.BSSH_NM}">${r.BSSH_NM}</td>
                         <td class="px-4 py-2.5 text-slate-600 whitespace-nowrap">${r.PRDLST_DCNM}</td>
                         <td class="px-4 py-2.5 font-semibold text-slate-800 truncate max-w-xs" title="${r.PRDLST_NM}">${r.PRDLST_NM}</td>
                         <td class="px-4 py-2.5 whitespace-nowrap">
