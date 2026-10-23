@@ -5,6 +5,7 @@ import duckdb
 import os
 import io
 import csv
+import re
 
 app = FastAPI()
 
@@ -33,23 +34,112 @@ def query_to_dict(cursor, query: str):
 def sanitize_input(val: str) -> str:
     return val.replace("'", "''").replace("\\", "")
 
-def build_where_clause(company: str, ptype: str, pname: str, rawmtrl: str, dateFrom: str, dateTo: str):
+def parse_smart_keyword_clause(col_name: str, raw_input: str) -> str:
+    """
+    콤마(,) -> OR 조건
+    공백( ) 또는 플러스(+) -> AND 조건
+    마이너스(-키워드) -> 제외(NOT ILIKE) 조건
+    예: '단백질 초코, 제로 -수출용' -> ((단백질 AND 초코) OR (제로)) AND NOT 수출용
+    """
+    if not raw_input or not raw_input.strip():
+        return ""
+    
+    or_groups = []
+    exclude_terms = []
+    
+    for chunk in raw_input.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        
+        tokens = [t.strip() for t in re.split(r'[\s+]+', chunk) if t.strip()]
+        and_terms = []
+        
+        for token in tokens:
+            if token.startswith("-") and len(token) > 1:
+                clean_ex = sanitize_input(token[1:].strip())
+                if clean_ex:
+                    exclude_terms.append(f"COALESCE({col_name}, '') NOT ILIKE '%{clean_ex}%'")
+            else:
+                clean_in = sanitize_input(token.lstrip("+").strip())
+                if clean_in:
+                    and_terms.append(f"{col_name} ILIKE '%{clean_in}%'")
+        
+        if and_terms:
+            if len(and_terms) == 1:
+                or_groups.append(and_terms[0])
+            else:
+                or_groups.append(f"({' AND '.join(and_terms)})")
+                
+    clauses = []
+    if or_groups:
+        clauses.append(f"({' OR '.join(or_groups)})")
+    if exclude_terms:
+        clauses.append(" AND ".join(exclude_terms))
+        
+    return " AND ".join(clauses)
+
+def build_where_clause(
+    company: str, ptype: str, pname: str, rawmtrl: str, 
+    dateFrom: str = "", dateTo: str = "", include_ptype: bool = True
+):
     clauses = ["1=1"]
     if company and company != "ALL":
         keys = [sanitize_input(k.strip()) for k in company.split(",") if k.strip()]
-        if keys: clauses.append(f"({' OR '.join([f"BSSH_NM = '{k}'" for k in keys])})")
-    if ptype and ptype != "ALL":
+        if keys:
+            or_sql = " OR ".join([f"BSSH_NM = '{k}'" for k in keys])
+            clauses.append(f"({or_sql})")
+            
+    if include_ptype and ptype and ptype != "ALL":
         keys = [sanitize_input(k.strip()) for k in ptype.split(",") if k.strip()]
-        if keys: clauses.append(f"({' OR '.join([f"PRDLST_DCNM = '{k}'" for k in keys])})")
+        if keys:
+            or_sql = " OR ".join([f"PRDLST_DCNM = '{k}'" for k in keys])
+            clauses.append(f"({or_sql})")
+            
     if pname:
-        keys = [sanitize_input(k.strip()) for k in pname.split(",") if k.strip()]
-        if keys: clauses.append(f"({' OR '.join([f"PRDLST_NM ILIKE '%{k}%'" for k in keys])})")
+        pname_sql = parse_smart_keyword_clause("PRDLST_NM", pname)
+        if pname_sql:
+            clauses.append(pname_sql)
+            
     if rawmtrl:
-        keys = [sanitize_input(k.strip()) for k in rawmtrl.split(",") if k.strip()]
-        if keys: clauses.append(f"({' OR '.join([f"RAWMTRL_NM ILIKE '%{k}%'" for k in keys])})")
-    if dateFrom: clauses.append(f"PRMS_DT >= '{sanitize_input(dateFrom.replace("-", ""))}'")
-    if dateTo: clauses.append(f"PRMS_DT <= '{sanitize_input(dateTo.replace("-", ""))}'")
+        raw_sql = parse_smart_keyword_clause("RAWMTRL_NM", rawmtrl)
+        if raw_sql:
+            clauses.append(raw_sql)
+            
+    if dateFrom:
+        clean_from = sanitize_input(re.sub(r'[^0-9]', '', dateFrom))
+        if clean_from:
+            clauses.append(f"PRMS_DT >= '{clean_from}'")
+            
+    if dateTo:
+        clean_to = sanitize_input(re.sub(r'[^0-9]', '', dateTo))
+        if clean_to:
+            clauses.append(f"PRMS_DT <= '{clean_to}'")
+            
     return " AND ".join(clauses)
+
+def get_dataset_date_range(cursor, data_type: str):
+    file_path = get_file_path(data_type)
+    if not os.path.exists(file_path):
+        return {"min_slash": "-", "max_slash": "-", "min_dash": "-", "max_dash": "-", "label": "데이터 없음"}
+    try:
+        dt_query = f"SELECT MIN(PRMS_DT), MAX(PRMS_DT) FROM '{file_path}' WHERE LENGTH(PRMS_DT) = 8 AND PRMS_DT NOT LIKE '0000%'"
+        row = cursor.execute(dt_query).fetchone()
+        if row and row[0] and row[1]:
+            min_s = f"{row[0][:4]}/{row[0][4:6]}/{row[0][6:]}"
+            max_s = f"{row[1][:4]}/{row[1][4:6]}/{row[1][6:]}"
+            min_d = f"{row[0][:4]}-{row[0][4:6]}-{row[0][6:]}"
+            max_d = f"{row[1][:4]}-{row[1][4:6]}-{row[1][6:]}"
+            return {
+                "min_slash": min_s,
+                "max_slash": max_s,
+                "min_dash": min_d,
+                "max_dash": max_d,
+                "label": f"{min_s}~{max_s}"
+            }
+    except Exception:
+        pass
+    return {"min_slash": "-", "max_slash": "-", "min_dash": "-", "max_dash": "-", "label": "-"}
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def serve_dashboard():
@@ -59,53 +149,90 @@ def serve_dashboard():
 
 @app.get("/api/meta")
 def get_meta(dataType: str = "food"):
-    file_path = get_file_path(dataType)
-    if not os.path.exists(file_path): return {"min_date": "-", "max_date": "-", "companies": [], "ptypes": []}
     cursor = db.cursor()
     try:
-        dt_query = f"SELECT MIN(PRMS_DT), MAX(PRMS_DT) FROM '{file_path}' WHERE LENGTH(PRMS_DT) = 8 AND PRMS_DT NOT LIKE '0000%'"
-        row = cursor.execute(dt_query).fetchone()
-        min_d = f"{row[0][:4]}-{row[0][4:6]}-{row[0][6:]}" if row and row[0] else "-"
-        max_d = f"{row[1][:4]}-{row[1][4:6]}-{row[1][6:]}" if row and row[1] else "-"
+        food_range = get_dataset_date_range(cursor, "food")
+        meat_range = get_dataset_date_range(cursor, "meat")
+        current_range = food_range if dataType == "food" else meat_range
+
+        file_path = get_file_path(dataType)
+        if not os.path.exists(file_path):
+            return {
+                "min_date": "-", "max_date": "-", 
+                "food_period": food_range["label"],
+                "meat_period": meat_range["label"],
+                "companies": [], "ptypes": []
+            }
+
         companies = [r[0] for r in cursor.execute(f"SELECT BSSH_NM, COUNT(*) as cnt FROM '{file_path}' WHERE BSSH_NM != '' GROUP BY BSSH_NM ORDER BY cnt DESC").fetchall()]
         ptypes = [r[0] for r in cursor.execute(f"SELECT PRDLST_DCNM, COUNT(*) as cnt FROM '{file_path}' WHERE PRDLST_DCNM != '' GROUP BY PRDLST_DCNM ORDER BY cnt DESC").fetchall()]
-        return {"min_date": min_d, "max_date": max_d, "companies": companies, "ptypes": ptypes}
+        
+        return {
+            "min_date": current_range["min_dash"],
+            "max_date": current_range["max_dash"],
+            "food_period": food_range["label"],
+            "meat_period": meat_range["label"],
+            "companies": companies,
+            "ptypes": ptypes
+        }
     finally:
         cursor.close()
 
 @app.get("/api/dashboard")
 def get_dashboard_data(
-    dataType: str="food", company: str="", ptype: str="", pname: str="", rawmtrl: str="", 
-    dateFrom: str="", dateTo: str="", targetStartDate: str="", targetEndDate: str=""
+    dataType: str = "food", company: str = "", ptype: str = "", pname: str = "", rawmtrl: str = "", 
+    dateFrom: str = "", dateTo: str = "", targetStartDate: str = "", targetEndDate: str = ""
 ):
     file_path = get_file_path(dataType)
-    if not os.path.exists(file_path): return JSONResponse(status_code=404, content={"error": "File not found"})
+    if not os.path.exists(file_path):
+        return JSONResponse(status_code=404, content={"error": "File not found"})
 
-    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
+    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo, include_ptype=True)
     cursor = db.cursor()
     try:
-        kpi_result = query_to_dict(cursor, f"SELECT COUNT(*) as total_items, COUNT(DISTINCT BSSH_NM) as company_count, COUNT(DISTINCT PRDLST_DCNM) as ptype_count FROM '{file_path}' WHERE {where_sql}")
+        kpi_result = query_to_dict(
+            cursor, 
+            f"SELECT COUNT(*) as total_items, COUNT(DISTINCT BSSH_NM) as company_count, COUNT(DISTINCT PRDLST_DCNM) as ptype_count FROM '{file_path}' WHERE {where_sql}"
+        )
         kpi = kpi_result[0] if kpi_result else {"total_items": 0, "company_count": 0, "ptype_count": 0}
 
-        target_stats = {"items": [], "total": 0}
+        target_stats = {"items": [], "by_company": [], "total": 0}
         
         if targetStartDate and targetEndDate:
-            str_start = sanitize_input(targetStartDate.replace("-", ""))
-            str_end = sanitize_input(targetEndDate.replace("-", ""))
+            # 상단 신제품 등록 현황에도 제조사/품목명/원재료명 필터가 연동되도록 구성
+            target_where = build_where_clause(
+                company, ptype, pname, rawmtrl, 
+                dateFrom=targetStartDate, dateTo=targetEndDate, include_ptype=True
+            )
             
             target_query = f"""
-                SELECT PRDLST_DCNM as ptype, COUNT(*) as count
+                SELECT PRDLST_DCNM as ptype, BSSH_NM as company, COUNT(*) as count
                 FROM '{file_path}'
-                WHERE PRMS_DT >= '{str_start}' AND PRMS_DT <= '{str_end}' 
-                GROUP BY PRDLST_DCNM
+                WHERE {target_where}
+                GROUP BY PRDLST_DCNM, BSSH_NM
                 ORDER BY count DESC
             """
             try:
                 rows = query_to_dict(cursor, target_query)
+                ptype_map = {}
+                
                 for r in rows:
-                    if r['count'] > 0: 
-                        target_stats["total"] += r['count']
-                        target_stats["items"].append(r)
+                    pt = r["ptype"] or "미분류"
+                    comp = r["company"] or "미상"
+                    cnt = int(r["count"] or 0)
+                    if cnt <= 0:
+                        continue
+                        
+                    target_stats["total"] += cnt
+                    target_stats["by_company"].append({"ptype": pt, "company": comp, "count": cnt})
+                    
+                    if pt not in ptype_map:
+                        ptype_map[pt] = {"ptype": pt, "count": 0, "top_companies": []}
+                    ptype_map[pt]["count"] += cnt
+                    if len(ptype_map[pt]["top_companies"]) < 3:
+                        ptype_map[pt]["top_companies"].append({"name": comp, "count": cnt})
+                
+                target_stats["items"] = sorted(ptype_map.values(), key=lambda x: x["count"], reverse=True)
             except Exception:
                 pass
 
@@ -117,26 +244,67 @@ def get_dashboard_data(
         cursor.close()
 
 @app.get("/api/details")
-def details(dataType: str="food", company: str="", ptype: str="", pname: str="", rawmtrl: str="", dateFrom: str="", dateTo: str="", page: int=1, sortCol: str="PRMS_DT", sortAsc: str="false"):
+def details(
+    dataType: str = "food", company: str = "", ptype: str = "", pname: str = "", rawmtrl: str = "", 
+    dateFrom: str = "", dateTo: str = "", page: int = 1, sortCol: str = "PRMS_DT", sortAsc: str = "false"
+):
     file_path = get_file_path(dataType)
-    if not os.path.exists(file_path): return JSONResponse(content={"TotalCount": 0, "Data": []})
-    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
+    if not os.path.exists(file_path):
+        return JSONResponse(content={"TotalCount": 0, "Data": []})
+    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo, include_ptype=True)
     cursor = db.cursor()
     try:
         total_count = cursor.execute(f"SELECT COUNT(*) FROM '{file_path}' WHERE {where_sql}").fetchone()[0]
         safe_sort_col = sortCol if sortCol in {"BSSH_NM", "PRDLST_REPORT_NO", "PRDLST_NM", "PRDLST_DCNM", "RAWMTRL_NM", "PRMS_DT", "CHNG_DT"} else "PRMS_DT"
-        data = query_to_dict(cursor, f"SELECT COALESCE(BSSH_NM, '') as BSSH_NM, COALESCE(PRDLST_REPORT_NO, '') as PRDLST_REPORT_NO, COALESCE(PRDLST_NM, '') as PRDLST_NM, COALESCE(PRDLST_DCNM, '') as PRDLST_DCNM, COALESCE(RAWMTRL_NM, '') as RAWMTRL_NM, COALESCE(PRMS_DT, '') as PRMS_DT, COALESCE(CHNG_DT, '') as CHNG_DT FROM '{file_path}' WHERE {where_sql} ORDER BY {safe_sort_col} {'ASC' if sortAsc.lower() == 'true' else 'DESC'} LIMIT 20 OFFSET {(page - 1) * 20}")
+        order_dir = "ASC" if sortAsc.lower() == "true" else "DESC"
+        offset = max(0, (page - 1) * 20)
+        
+        data = query_to_dict(
+            cursor, 
+            f"""
+            SELECT 
+                COALESCE(BSSH_NM, '') as BSSH_NM, 
+                COALESCE(PRDLST_REPORT_NO, '') as PRDLST_REPORT_NO, 
+                COALESCE(PRDLST_NM, '') as PRDLST_NM, 
+                COALESCE(PRDLST_DCNM, '') as PRDLST_DCNM, 
+                COALESCE(RAWMTRL_NM, '') as RAWMTRL_NM, 
+                COALESCE(PRMS_DT, '') as PRMS_DT, 
+                COALESCE(CHNG_DT, '') as CHNG_DT 
+            FROM '{file_path}' 
+            WHERE {where_sql} 
+            ORDER BY {safe_sort_col} {order_dir} 
+            LIMIT 20 OFFSET {offset}
+            """
+        )
         return JSONResponse(content={"TotalCount": total_count, "Data": data})
     finally:
         cursor.close()
 
 @app.get("/api/download")
-def download(dataType: str="food", company: str="", ptype: str="", pname: str="", rawmtrl: str="", dateFrom: str="", dateTo: str="", sortCol: str="PRMS_DT", sortAsc: str="false"):
+def download(
+    dataType: str = "food", company: str = "", ptype: str = "", pname: str = "", rawmtrl: str = "", 
+    dateFrom: str = "", dateTo: str = "", sortCol: str = "PRMS_DT", sortAsc: str = "false"
+):
     file_path = get_file_path(dataType)
-    if not os.path.exists(file_path): return JSONResponse(status_code=404, content={"error": "File not found"})
-    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo)
+    if not os.path.exists(file_path):
+        return JSONResponse(status_code=404, content={"error": "File not found"})
+    where_sql = build_where_clause(company, ptype, pname, rawmtrl, dateFrom, dateTo, include_ptype=True)
     safe_sort_col = sortCol if sortCol in {"BSSH_NM", "PRDLST_REPORT_NO", "PRDLST_NM", "PRDLST_DCNM", "RAWMTRL_NM", "PRMS_DT", "CHNG_DT"} else "PRMS_DT"
-    export_query = f"SELECT BSSH_NM as '업소명', PRDLST_REPORT_NO as '품목제조번호', PRDLST_NM as '품목명', PRDLST_DCNM as '품목유형', RAWMTRL_NM as '원재료명', PRMS_DT as '등록일자', CHNG_DT as '변경일자' FROM '{file_path}' WHERE {where_sql} ORDER BY {safe_sort_col} {'ASC' if sortAsc.lower() == 'true' else 'DESC'}"
+    order_dir = "ASC" if sortAsc.lower() == "true" else "DESC"
+    
+    export_query = f"""
+        SELECT 
+            BSSH_NM as '업소명', 
+            PRDLST_REPORT_NO as '품목제조번호', 
+            PRDLST_NM as '품목명', 
+            PRDLST_DCNM as '품목유형', 
+            RAWMTRL_NM as '원재료명', 
+            PRMS_DT as '등록일자', 
+            CHNG_DT as '변경일자' 
+        FROM '{file_path}' 
+        WHERE {where_sql} 
+        ORDER BY {safe_sort_col} {order_dir}
+    """
     def iter_csv():
         cursor = db.cursor()
         try:
@@ -146,13 +314,20 @@ def download(dataType: str="food", company: str="", ptype: str="", pname: str=""
             buffer.write('\ufeff')
             writer.writerow([desc[0] for desc in res.description])
             yield buffer.getvalue()
-            buffer.seek(0); buffer.truncate(0)
+            buffer.seek(0)
+            buffer.truncate(0)
             while True:
                 chunk = res.fetchmany(1000)
-                if not chunk: break
+                if not chunk:
+                    break
                 writer.writerows(chunk)
                 yield buffer.getvalue()
-                buffer.seek(0); buffer.truncate(0)
+                buffer.seek(0)
+                buffer.truncate(0)
         finally:
             cursor.close()
-    return StreamingResponse(iter_csv(), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="Report_Data_Export.csv"'})
+    return StreamingResponse(
+        iter_csv(), 
+        media_type="text/csv", 
+        headers={"Content-Disposition": 'attachment; filename="Report_Data_Export.csv"'}
+    )
