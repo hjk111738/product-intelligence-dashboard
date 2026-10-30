@@ -46,7 +46,14 @@ def sort_materials(struct_val):
     except Exception:
         return mat_val
 
-def get_latest_change_date(parquet_file: str, fallback_days: int = 14) -> str:
+def get_latest_change_date(parquet_file: str) -> str:
+    """
+    식품안전나라 API 제한(최대 7일 이내 증분만 호출 가능)을 준수하면서
+    기존 파일의 최신 날짜 또는 기본 6일 전 날짜를 계산
+    """
+    today = datetime.now()
+    max_history_limit = today - timedelta(days=6) # API 최대 제한(7일) 내 안전 마진
+
     if os.path.exists(parquet_file):
         try:
             df = pl.read_parquet(parquet_file)
@@ -54,26 +61,29 @@ def get_latest_change_date(parquet_file: str, fallback_days: int = 14) -> str:
                 valid_dates = df.filter(pl.col("CHNG_DT").str.len_chars() == 8)["CHNG_DT"]
                 if valid_dates.len() > 0:
                     max_dt_str = valid_dates.max()
-                    base_dt = datetime.strptime(max_dt_str, "%Y%m%d") - timedelta(days=3)
-                    start_str = base_dt.strftime("%Y%m%d")
-                    print(f"📌 [{parquet_file}] 기존 최신 변경일자: {max_dt_str} -> 수집 시작일: {start_str}")
+                    file_dt = datetime.strptime(max_dt_str, "%Y%m%d")
+                    
+                    # 파일 날짜가 너무 오래되었더라도 API 제한(최대 6일 전)으로 클램핑
+                    target_dt = max(file_dt, max_history_limit)
+                    start_str = target_dt.strftime("%Y%m%d")
+                    print(f"📌 [{parquet_file}] 기존 최신 변경일자: {max_dt_str} -> API 제한 반영 수집 시작일: {start_str}")
                     return start_str
         except Exception as e:
             print(f"⚠️ 기존 파일 날짜 확인 중 오류 ({e}), 기본값 사용")
 
-    fallback_str = (datetime.now() - timedelta(days=fallback_days)).strftime("%Y%m%d")
+    fallback_str = max_history_limit.strftime("%Y%m%d")
     print(f"📌 [{parquet_file}] 기본 수집 시작일 적용: {fallback_str}")
     return fallback_str
 
 def fetch_api_all_changes(service_id: str, start_dt: str):
     """
-    날짜(CHNG_DT) 기준 이후 데이터를 페이징으로 일괄 수집 (축산물 C006 등 필터 미지원 API용)
+    축산물(C006) 등 품목 필터 미지원 서비스용 일괄 페이징 수집
     """
     collected = []
     start_idx = 1
     page_size = 1000
 
-    print(f"📡 [{service_id}] API 일괄 수집 시작 (기준일 이후: {start_dt})")
+    print(f"📡 [{service_id}] API 일괄 수집 시작 (CHNG_DT >= {start_dt})")
 
     while True:
         end_idx = start_idx + page_size - 1
@@ -84,6 +94,7 @@ def fetch_api_all_changes(service_id: str, start_dt: str):
             res = resp.json()
 
             if "RESULT" in res and res["RESULT"].get("CODE") != "INFO-000":
+                print(f"   ⚠️ API 응답 메시지: {res['RESULT'].get('MSG')}")
                 break
 
             data_block = res.get(service_id, {})
@@ -159,11 +170,10 @@ def fetch_api_by_ptype_and_date(service_id: str, ptype: str, start_dt: str):
 
 def sync_dataset(service_id: str, parquet_file: str, data_type: str):
     target_ptypes = set(TARGET_FOOD_PTYPES if data_type == 'food' else TARGET_MEAT_PTYPES)
-    start_dt = get_latest_change_date(parquet_file, fallback_days=14)
+    start_dt = get_latest_change_date(parquet_file)
     
     raw_rows = []
     if service_id == "C002":
-        # 일반식품은 품목별 핀포인트 수집
         print(f"\n=======================================================")
         print(f"🚀 [C002 - food] 품목별 핀포인트 수집 시작 (CHNG_DT >= {start_dt})")
         print(f"=======================================================")
@@ -174,13 +184,11 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
                 raw_rows.extend(rows)
             time.sleep(0.1)
     else:
-        # 축산물(C006)은 날짜 기준으로 전체 일괄 수집 후 메모리에서 타겟 필터링
         print(f"\n=======================================================")
         print(f"🚀 [C006 - meat] 축산물 전체 변경분 수집 시작 (CHNG_DT >= {start_dt})")
         print(f"=======================================================")
         raw_rows = fetch_api_all_changes(service_id, start_dt)
 
-    # 타겟 품목유형(B2C)에 해당하는 것만 필터링
     new_rows = [r for r in raw_rows if r.get("PRDLST_DCNM") in target_ptypes]
     print(f"📊 [{data_type}] 수집된 총 데이터 중 타겟 완제품 {len(new_rows):,}건 선별됨")
 
