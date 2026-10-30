@@ -47,23 +47,20 @@ def sort_materials(struct_val):
         return mat_val
 
 def get_latest_change_date(parquet_file: str) -> str:
-    """
-    식품안전나라 API 제한(최대 7일 이내 증분만 호출 가능)을 준수하면서
-    기존 파일의 최신 날짜 또는 기본 6일 전 날짜를 계산
-    """
     today = datetime.now()
-    max_history_limit = today - timedelta(days=6) # API 최대 제한(7일) 내 안전 마진
+    max_history_limit = today - timedelta(days=6)
 
     if os.path.exists(parquet_file):
         try:
             df = pl.read_parquet(parquet_file)
             if "CHNG_DT" in df.columns:
-                valid_dates = df.filter(pl.col("CHNG_DT").str.len_chars() == 8)["CHNG_DT"]
+                valid_dates = df.filter(
+                    (pl.col("CHNG_DT").str.len_chars() == 8) & 
+                    (pl.col("CHNG_DT") <= today.strftime("%Y%m%d"))
+                )["CHNG_DT"]
                 if valid_dates.len() > 0:
                     max_dt_str = valid_dates.max()
                     file_dt = datetime.strptime(max_dt_str, "%Y%m%d")
-                    
-                    # 파일 날짜가 너무 오래되었더라도 API 제한(최대 6일 전)으로 클램핑
                     target_dt = max(file_dt, max_history_limit)
                     start_str = target_dt.strftime("%Y%m%d")
                     print(f"📌 [{parquet_file}] 기존 최신 변경일자: {max_dt_str} -> API 제한 반영 수집 시작일: {start_str}")
@@ -76,9 +73,6 @@ def get_latest_change_date(parquet_file: str) -> str:
     return fallback_str
 
 def fetch_api_all_changes(service_id: str, start_dt: str):
-    """
-    축산물(C006) 등 품목 필터 미지원 서비스용 일괄 페이징 수집
-    """
     collected = []
     start_idx = 1
     page_size = 1000
@@ -123,9 +117,6 @@ def fetch_api_all_changes(service_id: str, start_dt: str):
     return collected
 
 def fetch_api_by_ptype_and_date(service_id: str, ptype: str, start_dt: str):
-    """
-    일반식품(C002)용 품목유형 + 날짜 핀포인트 수집
-    """
     collected = []
     start_idx = 1
     page_size = 1000
@@ -219,6 +210,25 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
 
     if "PRDLST_DCNM" in combined_df.columns:
         combined_df = combined_df.filter(pl.col("PRDLST_DCNM").is_in(list(target_ptypes)))
+
+    # 🛡️ 미래 날짜(오류 데이터, 예: 2103년 등) 정제 및 일자 통일 로직
+    today_str = datetime.now().strftime("%Y%m%d")
+    if "PRMS_DT" in combined_df.columns and "CHNG_DT" in combined_df.columns:
+        combined_df = combined_df.with_columns([
+            pl.when((pl.col("CHNG_DT") > today_str) & (pl.col("PRMS_DT") <= today_str))
+              .then(pl.col("PRMS_DT"))
+              .when((pl.col("CHNG_DT") > today_str) & (pl.col("PRMS_DT") > today_str))
+              .then(pl.lit(today_str))
+              .otherwise(pl.col("CHNG_DT"))
+              .alias("CHNG_DT"),
+              
+            pl.when((pl.col("PRMS_DT") > today_str) & (pl.col("CHNG_DT") <= today_str))
+              .then(pl.col("CHNG_DT"))
+              .when((pl.col("PRMS_DT") > today_str) & (pl.col("CHNG_DT") > today_str))
+              .then(pl.lit(today_str))
+              .otherwise(pl.col("PRMS_DT"))
+              .alias("PRMS_DT"),
+        ])
 
     if "CHNG_DT" in combined_df.columns and "PRDLST_REPORT_NO" in combined_df.columns:
         combined_df = combined_df.sort("CHNG_DT", descending=True).unique(subset=["PRDLST_REPORT_NO"], keep="first")
