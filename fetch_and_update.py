@@ -1,5 +1,6 @@
 import os
 import time
+import urllib.parse
 import requests
 from datetime import datetime, timedelta
 import polars as pl
@@ -64,23 +65,28 @@ def get_latest_change_date(parquet_file: str, fallback_days: int = 14) -> str:
     print(f"📌 [{parquet_file}] 기본 수집 시작일 적용: {fallback_str}")
     return fallback_str
 
-def fetch_api_all_changes(service_id: str, start_dt: str):
+def fetch_api_by_ptype_and_date(service_id: str, ptype: str, start_dt: str):
+    """
+    핵심 수정: 품목명(PRDLST_DCNM)과 변경일자 기준(CHNG_DT)을 동시에 조합하여 페이징 수집
+    """
     collected = []
     start_idx = 1
     page_size = 1000
-
-    print(f"📡 [{service_id}] API 수집 시작 (기준일 이후: {start_dt})")
+    encoded_ptype = urllib.parse.quote(ptype)
 
     while True:
         end_idx = start_idx + page_size - 1
-        url = f"http://openapi.foodsafetykorea.go.kr/api/{API_KEY}/{service_id}/json/{start_idx}/{end_idx}/CHNG_DT={start_dt}"
+        # 슬래시 뒤 첫 조건은 CHNG_DT, 추가 조건은 &로 PRDLST_DCNM 연결
+        url = (
+            f"http://openapi.foodsafetykorea.go.kr/api/{API_KEY}/{service_id}/json/{start_idx}/{end_idx}"
+            f"/CHNG_DT={start_dt}&PRDLST_DCNM={encoded_ptype}"
+        )
         
         try:
-            resp = requests.get(url, timeout=45)
+            resp = requests.get(url, timeout=30)
             res = resp.json()
 
             if "RESULT" in res and res["RESULT"].get("CODE") != "INFO-000":
-                print(f"   ⚠️ API 응답 메시지: {res['RESULT'].get('MSG')}")
                 break
 
             data_block = res.get(service_id, {})
@@ -95,32 +101,38 @@ def fetch_api_all_changes(service_id: str, start_dt: str):
 
             collected.extend(chunk)
             total_count = int(data_block.get("total_count", 0))
-            print(f"   -> {len(collected):,} / 총 {total_count:,}건 수집 중...")
 
             if len(collected) >= total_count:
                 break
 
             start_idx += page_size
-            time.sleep(0.2)
+            time.sleep(0.15)
         except Exception as e:
-            print(f"   ❌ API 호출 오류: {e}")
             break
 
-    print(f"✅ [{service_id}] 수집 완료: 총 {len(collected):,}건")
     return collected
 
 def sync_dataset(service_id: str, parquet_file: str, data_type: str):
-    target_ptypes = set(TARGET_FOOD_PTYPES if data_type == 'food' else TARGET_MEAT_PTYPES)
+    target_ptypes = TARGET_FOOD_PTYPES if data_type == 'food' else TARGET_MEAT_PTYPES
     start_dt = get_latest_change_date(parquet_file, fallback_days=14)
     
-    raw_rows = fetch_api_all_changes(service_id, start_dt)
+    print(f"\n=======================================================")
+    print(f"🚀 [{service_id} - {data_type}] 품목별 핀포인트 수집 시작 (CHNG_DT >= {start_dt})")
+    print(f"=======================================================")
 
-    new_rows = [r for r in raw_rows if r.get("PRDLST_DCNM") in target_ptypes]
-    print(f"📊 [{data_type}] 전체 변경분 {len(raw_rows):,}건 중 타겟 완제품 {len(new_rows):,}건 선별됨")
+    all_new_rows = []
+    for idx, pt in enumerate(target_ptypes, 1):
+        rows = fetch_api_by_ptype_and_date(service_id, pt, start_dt)
+        if rows:
+            print(f" [{idx:02d}/{len(target_ptypes)}] {pt}: +{len(rows)}건 수집")
+            all_new_rows.extend(rows)
+        time.sleep(0.1)
+
+    print(f"\n📊 [{data_type}] 신규/변경 수집 총계: {len(all_new_rows):,}건")
 
     new_df = None
-    if new_rows:
-        new_df = pl.DataFrame(new_rows)
+    if all_new_rows:
+        new_df = pl.DataFrame(all_new_rows)
         new_df = new_df.select([pl.col(c).cast(pl.Utf8) for c in new_df.columns])
         if "RAWMTRL_ORDNO" in new_df.columns and "RAWMTRL_NM" in new_df.columns:
             print(f"🔄 신규 수집 데이터 원재료명 배합순 정렬 중...")
@@ -144,7 +156,7 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
         combined_df = new_df
 
     if "PRDLST_DCNM" in combined_df.columns:
-        combined_df = combined_df.filter(pl.col("PRDLST_DCNM").is_in(list(target_ptypes)))
+        combined_df = combined_df.filter(pl.col("PRDLST_DCNM").is_in(target_ptypes))
 
     if "CHNG_DT" in combined_df.columns and "PRDLST_REPORT_NO" in combined_df.columns:
         combined_df = combined_df.sort("CHNG_DT", descending=True).unique(subset=["PRDLST_REPORT_NO"], keep="first")
