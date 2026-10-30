@@ -6,6 +6,7 @@ import polars as pl
 
 API_KEY = os.environ.get("FOOD_API_KEY", "b7fa39c1e193461cbd94")
 
+# 🟢 식품 핵심 타겟 품목 (33종)
 TARGET_FOOD_PTYPES = [
     "과자", "캔디류", "초콜릿가공품", "추잉껌", "빵류", "초콜릿", "밀크초콜릿", "준초콜릿", 
     "빙과", "당류가공품", "땅콩 또는 견과류가공품", 
@@ -16,6 +17,7 @@ TARGET_FOOD_PTYPES = [
     "기타가공품", "두류가공품"
 ]
 
+# 🔴 축산물 핵심 타겟 품목 (15종)
 TARGET_MEAT_PTYPES = [
     "비유지방아이스크림", "샤베트", "아이스밀크", "아이스크림", "가공유", "농후발효유", 
     "발효유", "영아용 조제유", "우유", "유당분해우유", "유산균첨가우유", 
@@ -120,10 +122,16 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
 
     print(f"\n📊 [{data_type}] 신규/변경 수집 총계: {len(all_new_rows):,}건")
 
+    # 신규 데이터 전처리 (원재료 정렬을 신규 수집 건에만 먼저 수행하여 속도 최적화)
     new_df = None
     if all_new_rows:
         new_df = pl.DataFrame(all_new_rows)
         new_df = new_df.select([pl.col(c).cast(pl.Utf8) for c in new_df.columns])
+        if "RAWMTRL_ORDNO" in new_df.columns and "RAWMTRL_NM" in new_df.columns:
+            print(f"🔄 신규 수집 데이터 원재료명 배합순 정렬 중...")
+            new_df = new_df.with_columns(
+                pl.struct(["RAWMTRL_ORDNO", "RAWMTRL_NM"]).map_elements(sort_materials, return_dtype=pl.Utf8).alias("RAWMTRL_NM")
+            )
 
     existing_df = None
     if os.path.exists(parquet_file):
@@ -140,19 +148,21 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
     else:
         combined_df = new_df
 
-    if "RAWMTRL_ORDNO" in combined_df.columns and "RAWMTRL_NM" in combined_df.columns:
-        combined_df = combined_df.with_columns(
-            pl.struct(["RAWMTRL_ORDNO", "RAWMTRL_NM"]).map_elements(sort_materials, return_dtype=pl.Utf8).alias("RAWMTRL_NM")
-        )
+    # 1. convert.py와 동일하게 정확한 타겟 품목유형만 남기도록 완전 일치 필터링
+    if "PRDLST_DCNM" in combined_df.columns:
+        combined_df = combined_df.filter(pl.col("PRDLST_DCNM").is_in(target_ptypes))
 
+    # 2. 최신 변경일자(CHNG_DT) 기준 중복 제거
     if "CHNG_DT" in combined_df.columns and "PRDLST_REPORT_NO" in combined_df.columns:
         combined_df = combined_df.sort("CHNG_DT", descending=True).unique(subset=["PRDLST_REPORT_NO"], keep="first")
 
+    # 3. 등록일자(PRMS_DT) 8자리 정규화 및 유효성 검증
     if "PRMS_DT" in combined_df.columns:
         combined_df = combined_df.with_columns(
             pl.col("PRMS_DT").str.replace_all("[^0-9]", "").str.slice(0, 8)
         ).filter(pl.col("PRMS_DT").str.len_chars() == 8)
 
+    # 4. Parquet 저장 (zstd 압축)
     combined_df.write_parquet(parquet_file, compression="zstd")
     p_size = round(os.path.getsize(parquet_file) / (1024 * 1024), 2)
     print(f"✅ [{parquet_file}] 갱신 및 압축 완료! (총 {combined_df.height:,}행 / {p_size} MB)")
