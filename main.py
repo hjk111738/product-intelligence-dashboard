@@ -6,6 +6,7 @@ import os
 import io
 import csv
 import re
+from datetime import datetime
 
 app = FastAPI()
 
@@ -26,6 +27,15 @@ db.execute("SET threads = 1;")
 def get_file_path(data_type: str):
     return os.path.join(BASE_DIR, f"data_{data_type}.parquet")
 
+def get_file_mtime(file_path: str) -> str:
+    if os.path.exists(file_path):
+        try:
+            mtime_timestamp = os.path.getmtime(file_path)
+            return datetime.fromtimestamp(mtime_timestamp).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
+    return "-"
+
 def query_to_dict(cursor, query: str):
     res = cursor.execute(query)
     columns = [desc[0] for desc in res.description]
@@ -39,7 +49,6 @@ def parse_smart_keyword_clause(col_name: str, raw_input: str) -> str:
     콤마(,) -> OR 조건
     공백( ) 또는 플러스(+) -> AND 조건
     마이너스(-키워드) -> 제외(NOT ILIKE) 조건
-    예: '단백질 초코, 제로 -수출용' -> ((단백질 AND 초코) OR (제로)) AND NOT 수출용
     """
     if not raw_input or not raw_input.strip():
         return ""
@@ -155,12 +164,22 @@ def get_meta(dataType: str = "food"):
         meat_range = get_dataset_date_range(cursor, "meat")
         current_range = food_range if dataType == "food" else meat_range
 
+        food_path = get_file_path("food")
+        meat_path = get_file_path("meat")
+
+        food_updated_at = get_file_mtime(food_path)
+        meat_updated_at = get_file_mtime(meat_path)
+        current_updated_at = food_updated_at if dataType == "food" else meat_updated_at
+
         file_path = get_file_path(dataType)
         if not os.path.exists(file_path):
             return {
                 "min_date": "-", "max_date": "-", 
                 "food_period": food_range["label"],
                 "meat_period": meat_range["label"],
+                "food_updated_at": food_updated_at,
+                "meat_updated_at": meat_updated_at,
+                "last_updated": current_updated_at,
                 "companies": [], "ptypes": []
             }
 
@@ -172,6 +191,9 @@ def get_meta(dataType: str = "food"):
             "max_date": current_range["max_dash"],
             "food_period": food_range["label"],
             "meat_period": meat_range["label"],
+            "food_updated_at": food_updated_at,
+            "meat_updated_at": meat_updated_at,
+            "last_updated": current_updated_at,
             "companies": companies,
             "ptypes": ptypes
         }
@@ -199,7 +221,6 @@ def get_dashboard_data(
         target_stats = {"items": [], "by_company": [], "total": 0}
         
         if targetStartDate and targetEndDate:
-            # 상단 신제품 등록 현황에도 제조사/품목명/원재료명 필터가 연동되도록 구성
             target_where = build_where_clause(
                 company, ptype, pname, rawmtrl, 
                 dateFrom=targetStartDate, dateTo=targetEndDate, include_ptype=True
