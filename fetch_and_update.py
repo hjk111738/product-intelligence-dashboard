@@ -224,4 +224,6 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
     p_size = round(os.path.getsize(parquet_file) / (1024 * 1024), 2)
     print(f"✅ [{parquet_file}] 갱신 및 압축 완료! (총 {combined_df.height:,}행 / {p_size} MB)\n")
 
-if __name__ == "__
+if __name__ == "__main__":
+    sync_dataset("C002", "data_food.parquet", "food")
+    sync_dataset("C006", "data_meat.parquet", "meat")
