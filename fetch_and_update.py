@@ -52,60 +52,45 @@ def get_latest_change_date(parquet_file: str, fallback_days: int = 14) -> str:
             df = pl.read_parquet(parquet_file)
             if "CHNG_DT" in df.columns:
                 valid_dates = df.filter(pl.col("CHNG_DT").str.len_chars() == 8)["CHNG_DT"]
-                if valid_dates.height > 0:
+                if valid_dates.len() > 0:
                     max_dt_str = valid_dates.max()
+                    # 안전 버퍼 3일 전부터 조회
                     base_dt = datetime.strptime(max_dt_str, "%Y%m%d") - timedelta(days=3)
                     start_str = base_dt.strftime("%Y%m%d")
-                    print(f"📌 [{parquet_file}] 기존 최신 변경일자: {max_dt_str} -> 수집 시작일자: {start_str}")
+                    print(f"📌 [{parquet_file}] 기존 최신 변경일자: {max_dt_str} -> 수집 시작일: {start_str}")
                     return start_str
         except Exception as e:
             print(f"⚠️ 기존 파일 날짜 확인 중 오류 ({e}), 기본값 사용")
 
-    fallback_dt = (datetime.now() - timedelta(days=fallback_days)).strftime("%Y%m%d")
-    print(f"📌 [{parquet_file}] 기본 수집 시작일자 적용: {fallback_dt}")
-    return fallback_dt
+    fallback_str = (datetime.now() - timedelta(days=fallback_days)).strftime("%Y%m%d")
+    print(f"📌 [{parquet_file}] 기본 수집 시작일 적용: {fallback_str}")
+    return fallback_str
 
-def fetch_api_by_ptype(service_id: str, ptype: str, start_dt: str):
+def fetch_api_all_changes(service_id: str, start_dt: str):
     """
-    식품안전나라 정식 파라미터 규격 적용:
-    첫 조건은 '/', 추가 조건은 '&'로 연결하며 CHNG_DT(특정일 이후 변경분) 단일 파라미터 사용
+    CHNG_DT=시작일 이후의 변경 데이터를 페이징(1000건씩)으로 누락 없이 일괄 수집
     """
     collected = []
     start_idx = 1
     page_size = 1000
-    encoded_ptype = urllib.parse.quote(ptype)
+
+    print(f"📡 [{service_id}] API 수집 시작 (기준일 이후: {start_dt})")
 
     while True:
         end_idx = start_idx + page_size - 1
-        url = (
-            f"http://openapi.foodsafetykorea.go.kr/api/{API_KEY}/{service_id}/json/{start_idx}/{end_idx}"
-            f"/CHNG_DT={start_dt}&PRDLST_DCNM={encoded_ptype}"
-        )
+        url = f"http://openapi.foodsafetykorea.go.kr/api/{API_KEY}/{service_id}/json/{start_idx}/{end_idx}/CHNG_DT={start_dt}"
         
         try:
-            resp = requests.get(url, timeout=30)
-            if resp.status_code != 200:
-                print(f"      ❌ [{ptype}] HTTP 상태 코드 오류: {resp.status_code}")
-                break
+            resp = requests.get(url, timeout=45)
+            res = resp.json()
 
-            try:
-                res = resp.json()
-            except Exception:
-                # JSON 파싱 실패 시 서버가 반환한 실제 텍스트 앞부분 출력
-                preview = resp.text.strip().replace("\n", " ")[:150]
-                print(f"      ❌ [{ptype}] JSON 응답 아님 (응답 내용: {preview})")
+            if "RESULT" in res and res["RESULT"].get("CODE") != "INFO-000":
+                print(f"   ⚠️ API 응답 메시지: {res['RESULT'].get('MSG')}")
                 break
-
-            # 최상위 RESULT가 있는 경우 (예: INFO-200 데이터 없음 등)
-            if "RESULT" in res:
-                code = res["RESULT"].get("CODE")
-                if code != "INFO-000":
-                    break
 
             data_block = res.get(service_id, {})
             result = data_block.get("RESULT", {})
 
-            # INFO-200(해당하는 데이터가 없습니다) 등은 정상 종료 처리
             if result.get("CODE") != "INFO-000":
                 break
 
@@ -115,39 +100,34 @@ def fetch_api_by_ptype(service_id: str, ptype: str, start_dt: str):
 
             collected.extend(chunk)
             total_count = int(data_block.get("total_count", 0))
+            print(f"   -> {len(collected):,} / 총 {total_count:,}건 수집 중...")
 
             if len(collected) >= total_count:
                 break
 
             start_idx += page_size
-            time.sleep(0.15)
+            time.sleep(0.2)
         except Exception as e:
-            print(f"      ❌ [{ptype}] API 통신 오류: {type(e).__name__} - {e}")
+            print(f"   ❌ API 호출 오류: {e}")
             break
 
+    print(f"✅ [{service_id}] 수집 완료: 총 {len(collected):,}건")
     return collected
 
 def sync_dataset(service_id: str, parquet_file: str, data_type: str):
-    target_ptypes = TARGET_FOOD_PTYPES if data_type == 'food' else TARGET_MEAT_PTYPES
+    target_ptypes = set(TARGET_FOOD_PTYPES if data_type == 'food' else TARGET_MEAT_PTYPES)
     start_dt = get_latest_change_date(parquet_file, fallback_days=14)
     
-    print(f"\n=======================================================")
-    print(f"🚀 [{service_id} - {data_type}] 타겟 품목 수집 시작 (CHNG_DT >= {start_dt})")
-    print(f"=======================================================")
+    # 1. API에서 해당일 이후 변경분 일괄 수집
+    raw_rows = fetch_api_all_changes(service_id, start_dt)
 
-    all_new_rows = []
-    for idx, pt in enumerate(target_ptypes, 1):
-        rows = fetch_api_by_ptype(service_id, pt, start_dt)
-        if rows:
-            print(f" [{idx:02d}/{len(target_ptypes)}] {pt}: +{len(rows)}건 수집")
-            all_new_rows.extend(rows)
-        time.sleep(0.1)
-
-    print(f"\n📊 [{data_type}] 신규/변경 수집 총계: {len(all_new_rows):,}건")
+    # 2. 타겟 품목유형(B2C)에 해당하는 것만 필터링
+    new_rows = [r for r in raw_rows if r.get("PRDLST_DCNM") in target_ptypes]
+    print(f"📊 [{data_type}] 전체 변경분 {len(raw_rows):,}건 중 타겟 완제품 {len(new_rows):,}건 선별됨")
 
     new_df = None
-    if all_new_rows:
-        new_df = pl.DataFrame(all_new_rows)
+    if new_rows:
+        new_df = pl.DataFrame(new_rows)
         new_df = new_df.select([pl.col(c).cast(pl.Utf8) for c in new_df.columns])
         if "RAWMTRL_ORDNO" in new_df.columns and "RAWMTRL_NM" in new_df.columns:
             print(f"🔄 신규 수집 데이터 원재료명 배합순 정렬 중...")
@@ -155,6 +135,7 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
                 pl.struct(["RAWMTRL_ORDNO", "RAWMTRL_NM"]).map_elements(sort_materials, return_dtype=pl.Utf8).alias("RAWMTRL_NM")
             )
 
+    # 3. 기존 Parquet 로드 및 병합
     existing_df = None
     if os.path.exists(parquet_file):
         existing_df = pl.read_parquet(parquet_file)
@@ -170,20 +151,24 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
     else:
         combined_df = new_df
 
+    # 4. 품목유형 재확인 필터링
     if "PRDLST_DCNM" in combined_df.columns:
-        combined_df = combined_df.filter(pl.col("PRDLST_DCNM").is_in(target_ptypes))
+        combined_df = combined_df.filter(pl.col("PRDLST_DCNM").is_in(list(target_ptypes)))
 
+    # 5. 최신 변경일자(CHNG_DT) 기준 중복 제거 (최신 스펙 덮어쓰기)
     if "CHNG_DT" in combined_df.columns and "PRDLST_REPORT_NO" in combined_df.columns:
         combined_df = combined_df.sort("CHNG_DT", descending=True).unique(subset=["PRDLST_REPORT_NO"], keep="first")
 
+    # 6. 등록일자 정규화
     if "PRMS_DT" in combined_df.columns:
         combined_df = combined_df.with_columns(
             pl.col("PRMS_DT").str.replace_all("[^0-9]", "").str.slice(0, 8)
         ).filter(pl.col("PRMS_DT").str.len_chars() == 8)
 
+    # 7. Parquet 저장
     combined_df.write_parquet(parquet_file, compression="zstd")
     p_size = round(os.path.getsize(parquet_file) / (1024 * 1024), 2)
-    print(f"✅ [{parquet_file}] 갱신 및 압축 완료! (총 {combined_df.height:,}행 / {p_size} MB)")
+    print(f"✅ [{parquet_file}] 갱신 및 압축 완료! (총 {combined_df.height:,}행 / {p_size} MB)\n")
 
 if __name__ == "__main__":
     sync_dataset("C002", "data_food.parquet", "food")
