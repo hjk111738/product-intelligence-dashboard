@@ -1,5 +1,6 @@
 import os
 import time
+import urllib.parse
 import requests
 from datetime import datetime, timedelta
 import polars as pl
@@ -64,23 +65,47 @@ def get_latest_change_date(parquet_file: str, fallback_days: int = 14) -> str:
     print(f"📌 [{parquet_file}] 기본 수집 시작일자 적용: {fallback_dt}")
     return fallback_dt
 
-def fetch_api_by_ptype(service_id: str, ptype: str, start_dt: str, end_dt: str):
+def fetch_api_by_ptype(service_id: str, ptype: str, start_dt: str):
+    """
+    식품안전나라 정식 파라미터 규격 적용:
+    첫 조건은 '/', 추가 조건은 '&'로 연결하며 CHNG_DT(특정일 이후 변경분) 단일 파라미터 사용
+    """
     collected = []
     start_idx = 1
     page_size = 1000
+    encoded_ptype = urllib.parse.quote(ptype)
 
     while True:
         end_idx = start_idx + page_size - 1
         url = (
             f"http://openapi.foodsafetykorea.go.kr/api/{API_KEY}/{service_id}/json/{start_idx}/{end_idx}"
-            f"/PRDLST_DCNM={ptype}/CHNG_DT_START={start_dt}/CHNG_DT_END={end_dt}"
+            f"/CHNG_DT={start_dt}&PRDLST_DCNM={encoded_ptype}"
         )
         
         try:
-            res = requests.get(url, timeout=30).json()
+            resp = requests.get(url, timeout=30)
+            if resp.status_code != 200:
+                print(f"      ❌ [{ptype}] HTTP 상태 코드 오류: {resp.status_code}")
+                break
+
+            try:
+                res = resp.json()
+            except Exception:
+                # JSON 파싱 실패 시 서버가 반환한 실제 텍스트 앞부분 출력
+                preview = resp.text.strip().replace("\n", " ")[:150]
+                print(f"      ❌ [{ptype}] JSON 응답 아님 (응답 내용: {preview})")
+                break
+
+            # 최상위 RESULT가 있는 경우 (예: INFO-200 데이터 없음 등)
+            if "RESULT" in res:
+                code = res["RESULT"].get("CODE")
+                if code != "INFO-000":
+                    break
+
             data_block = res.get(service_id, {})
             result = data_block.get("RESULT", {})
 
+            # INFO-200(해당하는 데이터가 없습니다) 등은 정상 종료 처리
             if result.get("CODE") != "INFO-000":
                 break
 
@@ -97,24 +122,22 @@ def fetch_api_by_ptype(service_id: str, ptype: str, start_dt: str, end_dt: str):
             start_idx += page_size
             time.sleep(0.15)
         except Exception as e:
-            print(f"      ❌ [{ptype}] API 호출 오류: {e}")
+            print(f"      ❌ [{ptype}] API 통신 오류: {type(e).__name__} - {e}")
             break
 
     return collected
 
 def sync_dataset(service_id: str, parquet_file: str, data_type: str):
     target_ptypes = TARGET_FOOD_PTYPES if data_type == 'food' else TARGET_MEAT_PTYPES
-    
     start_dt = get_latest_change_date(parquet_file, fallback_days=14)
-    end_dt = datetime.now().strftime("%Y%m%d")
     
     print(f"\n=======================================================")
-    print(f"🚀 [{service_id} - {data_type}] 타겟 품목 수집 시작: {start_dt} ~ {end_dt}")
+    print(f"🚀 [{service_id} - {data_type}] 타겟 품목 수집 시작 (CHNG_DT >= {start_dt})")
     print(f"=======================================================")
 
     all_new_rows = []
     for idx, pt in enumerate(target_ptypes, 1):
-        rows = fetch_api_by_ptype(service_id, pt, start_dt, end_dt)
+        rows = fetch_api_by_ptype(service_id, pt, start_dt)
         if rows:
             print(f" [{idx:02d}/{len(target_ptypes)}] {pt}: +{len(rows)}건 수집")
             all_new_rows.extend(rows)
@@ -122,7 +145,6 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
 
     print(f"\n📊 [{data_type}] 신규/변경 수집 총계: {len(all_new_rows):,}건")
 
-    # 신규 데이터 전처리 (원재료 정렬을 신규 수집 건에만 먼저 수행하여 속도 최적화)
     new_df = None
     if all_new_rows:
         new_df = pl.DataFrame(all_new_rows)
@@ -148,21 +170,17 @@ def sync_dataset(service_id: str, parquet_file: str, data_type: str):
     else:
         combined_df = new_df
 
-    # 1. convert.py와 동일하게 정확한 타겟 품목유형만 남기도록 완전 일치 필터링
     if "PRDLST_DCNM" in combined_df.columns:
         combined_df = combined_df.filter(pl.col("PRDLST_DCNM").is_in(target_ptypes))
 
-    # 2. 최신 변경일자(CHNG_DT) 기준 중복 제거
     if "CHNG_DT" in combined_df.columns and "PRDLST_REPORT_NO" in combined_df.columns:
         combined_df = combined_df.sort("CHNG_DT", descending=True).unique(subset=["PRDLST_REPORT_NO"], keep="first")
 
-    # 3. 등록일자(PRMS_DT) 8자리 정규화 및 유효성 검증
     if "PRMS_DT" in combined_df.columns:
         combined_df = combined_df.with_columns(
             pl.col("PRMS_DT").str.replace_all("[^0-9]", "").str.slice(0, 8)
         ).filter(pl.col("PRMS_DT").str.len_chars() == 8)
 
-    # 4. Parquet 저장 (zstd 압축)
     combined_df.write_parquet(parquet_file, compression="zstd")
     p_size = round(os.path.getsize(parquet_file) / (1024 * 1024), 2)
     print(f"✅ [{parquet_file}] 갱신 및 압축 완료! (총 {combined_df.height:,}행 / {p_size} MB)")
