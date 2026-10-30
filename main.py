@@ -6,7 +6,7 @@ import os
 import io
 import csv
 import re
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 app = FastAPI()
 
@@ -20,6 +20,9 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# KST (한국 표준시 = UTC + 9)
+KST = timezone(timedelta(hours=9))
+
 db = duckdb.connect()
 db.execute("SET memory_limit = '256MB';")
 db.execute("SET threads = 1;")
@@ -28,10 +31,15 @@ def get_file_path(data_type: str):
     return os.path.join(BASE_DIR, f"data_{data_type}.parquet")
 
 def get_file_mtime(file_path: str) -> str:
+    """
+    파일의 마지막 수정 시각을 가져와 한국 시간(KST)으로 변환
+    """
     if os.path.exists(file_path):
         try:
             mtime_timestamp = os.path.getmtime(file_path)
-            return datetime.fromtimestamp(mtime_timestamp).strftime("%Y-%m-%d %H:%M:%S")
+            dt_utc = datetime.fromtimestamp(mtime_timestamp, timezone.utc)
+            dt_kst = dt_utc.astimezone(KST)
+            return dt_kst.strftime("%Y-%m-%d %H:%M:%S")
         except Exception:
             pass
     return "-"
