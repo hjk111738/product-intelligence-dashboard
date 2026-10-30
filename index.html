@@ -33,7 +33,7 @@
             </div>
             
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto justify-end">
-                <!-- 식품 / 축산물 데이터 기간 표기 배지 -->
+                <!-- 식품 / 축산물 데이터 기간 및 최종 업데이트 일시 표기 배지 -->
                 <div class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs space-y-1 w-full sm:w-auto">
                     <div class="flex items-center justify-between sm:justify-start gap-2">
                         <span class="font-bold text-emerald-700">🟢 식품 데이터 기간 :</span>
@@ -42,6 +42,10 @@
                     <div class="flex items-center justify-between sm:justify-start gap-2">
                         <span class="font-bold text-rose-700">🔴 축산물 데이터 기간 :</span>
                         <span id="meatPeriodText" class="font-mono font-bold text-slate-700">불러오는 중...</span>
+                    </div>
+                    <div class="flex items-center justify-between sm:justify-start gap-2 pt-1 border-t border-slate-200/60">
+                        <span class="font-bold text-slate-600">🔄 최종 업데이트 :</span>
+                        <span id="lastUpdatedText" class="font-mono font-bold text-blue-600">불러오는 중...</span>
                     </div>
                 </div>
 
@@ -105,7 +109,7 @@
                 </div>
             </div>
 
-            <!-- 세부 품목유형별 카드 그리드 (깔끔한 단일 카드 UI) -->
+            <!-- 세부 품목유형별 카드 그리드 -->
             <div id="targetWeekGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 <p class="text-sm text-slate-400 col-span-full">데이터를 불러오는 중입니다...</p>
             </div>
@@ -270,7 +274,7 @@
         let selectedPtypes = new Set();
         let globalWeekStats = null;
         let activeGroup = 'ALL';
-        let activeCardPtype = null; // 세부 품목유형 카드 선택 상태
+        let activeCardPtype = null;
 
         const FOOD_GROUPS = {
             "🍪 스낵 & 디저트": ["과자","캔디류","초콜릿가공품","추잉껌","빵류","초콜릿","밀크초콜릿","준초콜릿","빙과","당류가공품","땅콩 또는 견과류가공품"],
@@ -437,6 +441,7 @@
                 allPtypes = d.ptypes || [];
                 document.getElementById('foodPeriodText').textContent = d.food_period || '-';
                 document.getElementById('meatPeriodText').textContent = d.meat_period || '-';
+                document.getElementById('lastUpdatedText').textContent = d.last_updated || '-';
                 renderCheckboxList('mfr', allCompanies);
                 renderCheckboxList('ptype', allPtypes);
                 updateBtnTexts();
@@ -515,9 +520,7 @@
 
         async function loadDashboard() {
             try {
-                // 1) KPI용 쿼리 (현재 선택된 모든 필터 반영)
                 const kpiParams = getFilterParams();
-                // 2) 현황판용 쿼리 (세부 유형이나 제조사 클릭 시에도 전체 카드 목록이 사라지지 않도록 보존)
                 const boardParams = new URLSearchParams({
                     dataType: currentTab,
                     company: 'ALL',
@@ -587,7 +590,6 @@
                 return;
             }
 
-            // 1. 세부 품목유형 카드 렌더링 (내부 제조사 텍스트 제거하여 깔끔하게 표시)
             let T = 0;
             g.innerHTML = F.map(i => {
                 T += i.count;
@@ -614,7 +616,6 @@
 
             document.getElementById('targetWeekTotal').textContent = `${Number(T).toLocaleString()}건`;
 
-            // 2. 세부 품목유형 버튼 아래 주요 등록 제조사 TOP 10 집계
             const scopeLabel = activeCardPtype
                 ? `[${activeCardPtype}] 주요 등록 제조사 TOP 10`
                 : (activeGroup === 'ALL' ? `[전체 품목군] 주요 등록 제조사 TOP 10` : `[${activeGroup}] 주요 등록 제조사 TOP 10`);
@@ -661,7 +662,6 @@
 
             const G = currentTab === 'food' ? FOOD_GROUPS : MEAT_GROUPS;
 
-            // 이미 선택된 세부 품목유형을 다시 클릭하면 선택 해제 (품목군 전체로 복귀)
             if (activeCardPtype === p) {
                 activeCardPtype = null;
                 selectedPtypes.clear();
