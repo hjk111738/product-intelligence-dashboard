@@ -1,0 +1,43 @@
+name: Daily Food Intelligence Data Sync
+
+on:
+  schedule:
+    # 매일 평일(월~금) 한국 시간 오전 06:00 실행 (UTC 기준 21:00)
+    - cron: '0 21 * * 0-4'
+  workflow_dispatch: # 웹에서 수동으로 즉시 실행 가능
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 환경 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 필수 라이브러리 설치
+        run: |
+          pip install --upgrade pip
+          pip install requests polars pyarrow
+
+      - name: 공공데이터 수집 및 Parquet 갱신
+        env:
+          FOOD_API_KEY: ${{ secrets.FOOD_API_KEY }}
+        run: |
+          python fetch_and_update.py
+
+      - name: Git 커밋 및 자동 푸시
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data_food.parquet data_meat.parquet
+          if git diff --staged --quiet; then
+            echo "변경 사항 없음"
+          else
+            git commit -m "Auto-update data from FoodSafety API ($(date +'%Y-%m-%d %H:%M:%S'))"
+            git push origin main
+          fi
